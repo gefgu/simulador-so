@@ -106,20 +106,20 @@ class GanttDiagram(customtkinter.CTkFrame):
         cell_width = usable_width / self.max_time
         cell_height = usable_height / self.n_tarefas
 
-        bar_margin = 12
+        bar_margin = 24
 
         x0 = self.margin_left + ingresso * cell_width
         y0 = (self.margin_top + linha * cell_height) + bar_margin
         x1 = x0 + duracao * cell_width
         y1 = (y0 + cell_height - (2 * bar_margin))
 
-        self.canvas.create_rectangle(x0, y0, x1, y1, fill=cor)
+        self.canvas.create_rectangle(x0, y0, x1, y1, fill=cor, outline='black', width=4)
 
         # Adiciona o ID da tarefa na esquerda da primeira coluna
         self.canvas.create_text(
             self.margin_left - 60, 
             y0 + cell_height / 2, 
-            text=f"Tarefa {id}", 
+            text=f"{id}", 
             fill="black", 
             font=("Arial", 18)
         )
