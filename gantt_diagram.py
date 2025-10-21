@@ -5,10 +5,10 @@ class GanttDiagram(customtkinter.CTkFrame):
         super().__init__(master)
 
         # Margins for labels
-        self.margin_left = 80
+        self.margin_left = 120
         self.margin_top = 160
         self.margin_bottom = 160
-        self.margin_right = 40
+        self.margin_right = 60
 
         # Recebe a quantidade de processos e o tempo máximo para configurar o diagrama de Gantt
         self.n_processes = n_processes
@@ -60,3 +60,12 @@ class GanttDiagram(customtkinter.CTkFrame):
             else:
                 # Outras linha: cinza e pontilhada
                 self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="gray", dash=(5, 3))
+
+            # Adiciona o número abaixo de cada coluna
+            self.canvas.create_text(
+                x, 
+                canvas_height - self.margin_bottom + 20, 
+                text=str(j), 
+                fill="black", 
+                font=("Arial", 18)
+            )
