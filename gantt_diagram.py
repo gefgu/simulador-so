@@ -61,7 +61,8 @@ class GanttDiagram(customtkinter.CTkFrame):
                 self.canvas.create_line(self.margin_left, y, canvas_width - self.margin_right, y, fill="black")
             else:
                 # Outras linha: cinza e pontilhada
-                self.canvas.create_line(self.margin_left, y, canvas_width - self.margin_right, y, fill="gray", dash=(5, 3))
+                # self.canvas.create_line(self.margin_left, y, canvas_width - self.margin_right, y, fill="gray", dash=(5, 3))
+                pass
         
 
         # Desenha linhas verticais
@@ -71,7 +72,7 @@ class GanttDiagram(customtkinter.CTkFrame):
                 self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="black")
             else:
                 # Outras linha: cinza e pontilhada
-                self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="gray", dash=(5, 3))
+                self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom + 8, fill="gray", dash=(5, 3))
 
             # Adiciona o número abaixo de cada coluna
             self.canvas.create_text(
@@ -91,10 +92,14 @@ class GanttDiagram(customtkinter.CTkFrame):
                 id=tarefa["id"],
                 ingresso=tarefa["ingresso"],
                 duracao=tarefa["duracao"],
-                cor=tarefa["cor"]
+                cor=tarefa["cor"],
+                tempos_de_execucao=tarefa["tempos_de_execucao"]
             )
 
-    def draw_tarefa_bar(self, linha, id, ingresso, duracao, cor):
+    def draw_tarefa_bar(self, linha, id, ingresso, duracao, cor, tempos_de_execucao):
+
+        tempo_atual = self.max_time - 1
+
         # canvas_width = self.canvas.winfo_width()
         # canvas_height = self.canvas.winfo_height()
         canvas_width = 1920
@@ -108,18 +113,50 @@ class GanttDiagram(customtkinter.CTkFrame):
 
         bar_margin = 24
 
-        x0 = self.margin_left + ingresso * cell_width
-        y0 = (self.margin_top + linha * cell_height) + bar_margin
-        x1 = x0 + duracao * cell_width
-        y1 = (y0 + cell_height - (2 * bar_margin))
+        tarefa_foi_concluida = duracao == len(tempos_de_execucao)
 
-        self.canvas.create_rectangle(x0, y0, x1, y1, fill=cor, outline='black', width=4)
+        if tarefa_foi_concluida:
+            tempo_termino = tempos_de_execucao[-1]
 
-        # Adiciona o ID da tarefa na esquerda da primeira coluna
+        else:
+            tempo_termino = tempo_atual
+
+        # Adiciona o ID da tarefa na esquerda
+        y_center = self.margin_top + linha * cell_height + cell_height / 2
         self.canvas.create_text(
             self.margin_left - 60, 
-            y0 + cell_height / 2, 
+            y_center, 
             text=f"{id}", 
             fill="black", 
             font=("Arial", 18)
         )
+
+        # Desenha retângulos para cada unidade de tempo desde ingresso até término
+        for tempo in range(ingresso, tempo_termino + 1):
+            x0 = self.margin_left + tempo * cell_width
+            y0 = (self.margin_top + linha * cell_height) + bar_margin
+            x1 = x0 + cell_width
+            y1 = (y0 + cell_height - (2 * bar_margin))
+            
+            # Se o tempo está na lista de execução, preenche com a cor, senão com branco
+            if tempo in tempos_de_execucao:
+                fill_color = cor
+            else:
+                fill_color = "white"
+            
+            border_width = 4
+
+            # Cria o retângulo sem borda
+            self.canvas.create_rectangle(x0, y0, x1, y1, fill=fill_color, outline="")
+            
+            # Adiciona borda esquerda no primeiro retângulo
+            if (tempo == ingresso) or (tempo in tempos_de_execucao):
+                self.canvas.create_line(x0, y0, x0, y1, fill='black', width=border_width)
+            
+            # Adiciona borda direita no último retângulo
+            if (tempo == tempo_termino) or (tempo in tempos_de_execucao):
+                self.canvas.create_line(x1, y0, x1, y1, fill='black', width=border_width)
+            
+            # Adiciona bordas superior e inferior em todos
+            self.canvas.create_line(x0, y0, x1, y0, fill='black', width=border_width)  # Top
+            self.canvas.create_line(x0, y1, x1, y1, fill='black', width=border_width)  # Bottom
