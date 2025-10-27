@@ -9,7 +9,6 @@
 # Caso contrário, usa FIFO como padrão (e notifica erro)
 import queue
 from tcb import TCB
-# import heapq
 
 
 # Fazer com vetor agora, depois atualizar para usar fila de prioridade (heap)
@@ -23,6 +22,7 @@ class Escalonador:
         self.estrutura_fila = {
             "fifo": queue.Queue,
             # Outros algoritmos podem ser adicionados aqui
+            # usar queue.PriorityQueue para heap
         }
 
         self.fila_tarefas_prontas = self.estrutura_fila.get(self.nome_escalonador, queue.Queue)()

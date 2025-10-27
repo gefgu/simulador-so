@@ -18,8 +18,7 @@
 
 # EXECUTAR UM TICK DE RELÓGIO
 # Adiciona as tarefas ingressadas na fila de prontas
-# Verifica se uma tarefa foi de suspensa para o pronta (se sim, adiciona na fila de prontas) -> PLACEHOLDER por enquanto
-# Simular "Semáforo" (notificações) para o mutex -> PLACEHOLDER por enquanto
+# Verifica se uma tarefa foi de suspensa para o pronta (IO, Mutex) (se sim, adiciona na fila de prontas) -> PLACEHOLDER por enquanto
 # Se houver uma nova tarefa ou acabar o quantum, manda para o algoritmo de escalonamento selecionado
 # Atualiza o relógio do sistema em +1 
 # Conta a tarefa em execução como tendo sido executada por 1 unidade de tempo
@@ -44,6 +43,7 @@ class SistemaOperacional:
         self.quantum = 1 # Quantum do sistema (para ser definido na leitura do arquivo, padrão 1)
         self.tarefas: list[TCB] = [] # Lista de TCBs
         self.tarefa_executando: TCB | None = None # Tarefa que está em execução no momento
+        self.tarefas_finalizadas: list[TCB] = [] # Lista de TCBs finalizadas
 
         with open(config_file, 'r') as file:
             lines = file.readlines()
@@ -95,36 +95,56 @@ class SistemaOperacional:
 
         # Adiciona as tarefas ingressadas na fila de prontas
         if self.relogio in self.tarefas_no_ingresso: # Tem tarefa que começa nesse momento?
+            
+            tarefa_foi_adicionada = True
             for tarefa in self.tarefas_no_ingresso[self.relogio]:
                 self.escalonador.adicionar_tarefa_pronta(tarefa)
-                tarefa_foi_adicionada = True
 
-        # PLACEHOLDER: Verifica se uma tarefa foi de suspensa para o pronta (se sim, adiciona na fila de prontas)
+            if self.tarefa_executando is not None: # Se tiver uma tarefa em execução, coloca de volta na fila de prontas
+                self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
+                self.tarefa_executando = None
 
-        # PLACEHOLDER: Simular "Semáforo" (notificações) para o mutex
+        # PLACEHOLDER: Verifica se uma tarefa foi de suspensa (IO, Mutex) para o pronta (se sim, adiciona na fila de prontas)
 
         # Se houver uma nova tarefa ou acabar o quantum, manda para o algoritmo de escalonamento selecionado
         # (IMPLEMENTAR ALGORITMOS DE ESCALONAMENTO AQUI)
-        if tarefa_foi_adicionada or (self.quantum_atual == self.quantum - 1):
+        if tarefa_foi_adicionada or (self.quantum_atual == 0):
             self.tarefa_executando = self.escalonador.escalonar()
+            self.quantum_atual = 0
+
+        if self.tarefa_executando is None:
+            # Nenhuma tarefa para executar nesse tick
+            self.relogio += 1
+            self.quantum_atual = 0
+            return
 
         # Conta a tarefa em execução como tendo sido executada por 1 unidade de tempo
         # (IMPLEMENTAR CONTAGEM DE TEMPO DE EXECUÇÃO AQUI)
         self.tarefa_executando["tempos_de_execucao"].append(self.relogio)
 
-        # Verifica se a tarefa em execução terminou (se sim, remove da fila de prontas)
-        # (IMPLEMENTAR VERIFICAÇÃO DE TÉRMINO AQUI)
-        if len(self.tarefa_executando["tempos_de_execucao"]) < self.tarefa_executando["duracao"]:
-            # Tarefa não terminou, adiciona de volta na fila de prontas
-            print("Adicionado de volta")
-            self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
-
-        # Atualiza o relógio do sistema em +1 
+        # Verifica se a tarefa terminou
+        if len(self.tarefa_executando["tempos_de_execucao"]) >= self.tarefa_executando["duracao"]:
+            print(f"Tarefa {self.tarefa_executando['id']} terminou.")
+            self.tarefas_finalizadas.append(self.tarefa_executando)
+            self.tarefa_executando = None
+            self.quantum_atual = 0  # Reset quantum
+        else:
+            # Tarefa não terminou, incrementa quantum
+            self.quantum_atual += 1
+            
+            # Se quantum acabou, coloca tarefa de volta no final da fila
+            if self.quantum_atual >= self.quantum:
+                self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
+                self.tarefa_executando = None
+                self.quantum_atual = 0
+        
         self.relogio += 1
-        self.quantum_atual = (self.quantum_atual + 1) % self.quantum
 
     def get_tarefas_ingressadas(self) -> list[TCB]:
         return [tarefa for tarefa in self.tarefas if tarefa["ingresso"] <= self.relogio] # Quais Tarefas já ingressaram no sistema
 
     def get_relogio(self) -> int:
         return self.relogio
+    
+    def simulacao_terminada(self) -> bool:
+        return len(self.tarefas_finalizadas) == len(self.tarefas)

@@ -16,6 +16,7 @@ class App(customtkinter.CTk):
         self.title("Simulador SO")
 
         self.gantt_diagram = None
+        self.sistema_operacional = None
 
         # Create main menu frame
         self.menu_frame = customtkinter.CTkFrame(self)
@@ -48,22 +49,45 @@ class App(customtkinter.CTk):
         config_file = "config.txt"  # Nome do arquivo de configuração
         self.sistema_operacional = SistemaOperacional(config_file)
 
-        for i in range(100):
-            self.sistema_operacional.executar_tick()
-            current_time = self.sistema_operacional.get_relogio()
-            tarefas = self.sistema_operacional.get_tarefas_ingressadas()
-            self.create_gantt_diagram(current_time+1, tarefas)
-            self.update()
-            sleep(1)  # Pausa para visualizar a simulação
+        # Create control frame for buttons
+        self.control_frame = customtkinter.CTkFrame(self)
+        self.control_frame.pack(side="bottom", fill="x", padx=20, pady=20)
 
-    
+        # Próximo tick button
+        self.next_tick_button = customtkinter.CTkButton(
+            self.control_frame,
+            text="Próximo tick",
+            font=("Arial", 18),
+            width=200,
+            height=50,
+            command=self.proximo_tick
+        )
+        self.next_tick_button.pack(pady=10)
+
+        # Initial diagram
+        self.atualizar_diagrama()
+
+    def proximo_tick(self):
+        """Execute one tick and update the diagram"""
+        self.sistema_operacional.executar_tick()
+        self.atualizar_diagrama()
+
+        if (self.sistema_operacional.simulacao_terminada()):
+            self.next_tick_button.configure(state="disabled")
+
+    def atualizar_diagrama(self):
+        """Update the Gantt diagram with current state"""
+        current_time = self.sistema_operacional.get_relogio()
+        tarefas = self.sistema_operacional.get_tarefas_ingressadas()
+        self.create_gantt_diagram(current_time, tarefas)
+
     def create_gantt_diagram(self, current_time, tarefas):
         # Se criar um novo, tira o antigo
         if self.gantt_diagram:
             self.gantt_diagram.destroy()
 
         self.gantt_diagram = GanttDiagram(self, current_time, tarefas)
-        self.gantt_diagram.pack(fill="both", expand=True)
+        self.gantt_diagram.pack(fill="both", expand=True, padx=20, pady=(20, 0))
 
     def redraw(self):
         if self.gantt_diagram:
@@ -72,4 +96,3 @@ class App(customtkinter.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
-    
