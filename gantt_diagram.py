@@ -40,6 +40,8 @@ class GanttDiagram(customtkinter.CTkFrame):
     def draw_grid(self):
         # Limpa o canvas antes de desenhar a grade
         self.canvas.delete("all")
+        if self.max_time == 0 or self.n_tarefas == 0: # Não tem nada para desenhar ainda
+            return
 
         # canvas_width = self.canvas.winfo_width()
         # canvas_height = self.canvas.winfo_height()
@@ -86,9 +88,10 @@ class GanttDiagram(customtkinter.CTkFrame):
         self.draw_tarefas(self.tarefas)
 
     def draw_tarefas(self, tarefas):
+        n_linhas = len(tarefas)
         for i, tarefa in enumerate(tarefas):
             self.draw_tarefa_bar(
-                linha=i,
+                linha=(n_linhas-1-i),  # Inverte a ordem das tarefas para desenhar de baixo para cima
                 id=tarefa["id"],
                 ingresso=tarefa["ingresso"],
                 duracao=tarefa["duracao"],
@@ -150,13 +153,34 @@ class GanttDiagram(customtkinter.CTkFrame):
             self.canvas.create_rectangle(x0, y0, x1, y1, fill=fill_color, outline="")
             
             # Adiciona borda esquerda no primeiro retângulo
-            if (tempo == ingresso) or (tempo in tempos_de_execucao):
+            if (tempo == ingresso) or number_in_start_sequence(tempo, tempos_de_execucao):
                 self.canvas.create_line(x0, y0, x0, y1, fill='black', width=border_width)
             
             # Adiciona borda direita no último retângulo
-            if (tempo == tempo_termino) or (tempo in tempos_de_execucao):
+            if (tempo == tempo_termino) or number_in_end_sequence(tempo, tempos_de_execucao):
                 self.canvas.create_line(x1, y0, x1, y1, fill='black', width=border_width)
             
             # Adiciona bordas superior e inferior em todos
             self.canvas.create_line(x0, y0, x1, y0, fill='black', width=border_width)  # Top
             self.canvas.create_line(x0, y1, x1, y1, fill='black', width=border_width)  # Bottom
+
+
+def number_in_start_sequence(x, seq):
+    index_x = seq.index(x) if x in seq else -1
+    if index_x == -1:
+        return False
+    
+    if (index_x == 0) or (seq[index_x - 1] < x-1):
+        return True
+
+    return False
+
+def number_in_end_sequence(x, seq):
+    index_x = seq.index(x) if x in seq else -1
+    if index_x == -1:
+        return False
+    
+    if (index_x == len(seq)-1) or (seq[index_x + 1] > x+1):
+        return True
+
+    return False

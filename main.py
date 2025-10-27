@@ -46,7 +46,7 @@ class App(customtkinter.CTk):
         self.menu_frame.destroy()
 
         # Iniciar a simulação
-        config_file = "config.txt"  # Nome do arquivo de configuração
+        config_file = "config_livro_rr.txt"  # Nome do arquivo de configuração
         self.sistema_operacional = SistemaOperacional(config_file)
 
         # Create control frame for buttons
@@ -79,7 +79,7 @@ class App(customtkinter.CTk):
         """Update the Gantt diagram with current state"""
         current_time = self.sistema_operacional.get_relogio()
         tarefas = self.sistema_operacional.get_tarefas_ingressadas()
-        self.create_gantt_diagram(current_time, tarefas)
+        self.create_gantt_diagram(current_time-1, tarefas)
 
     def create_gantt_diagram(self, current_time, tarefas):
         # Se criar um novo, tira o antigo

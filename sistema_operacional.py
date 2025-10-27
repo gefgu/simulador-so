@@ -44,6 +44,7 @@ class SistemaOperacional:
         self.tarefas: list[TCB] = [] # Lista de TCBs
         self.tarefa_executando: TCB | None = None # Tarefa que está em execução no momento
         self.tarefas_finalizadas: list[TCB] = [] # Lista de TCBs finalizadas
+        self.chama_escalonador_entrada = False # Flag para chamar o escalonador quando uma nova tarefa entra
 
         with open(config_file, 'r') as file:
             lines = file.readlines()
@@ -100,7 +101,7 @@ class SistemaOperacional:
             for tarefa in self.tarefas_no_ingresso[self.relogio]:
                 self.escalonador.adicionar_tarefa_pronta(tarefa)
 
-            if self.tarefa_executando is not None: # Se tiver uma tarefa em execução, coloca de volta na fila de prontas
+            if (self.tarefa_executando is not None) and (self.chama_escalonador_entrada): # Se tiver uma tarefa em execução, coloca de volta na fila de prontas
                 self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
                 self.tarefa_executando = None
 
@@ -108,7 +109,7 @@ class SistemaOperacional:
 
         # Se houver uma nova tarefa ou acabar o quantum, manda para o algoritmo de escalonamento selecionado
         # (IMPLEMENTAR ALGORITMOS DE ESCALONAMENTO AQUI)
-        if tarefa_foi_adicionada or (self.quantum_atual == 0):
+        if (tarefa_foi_adicionada and self.chama_escalonador_entrada) or (self.quantum_atual == 0):
             self.tarefa_executando = self.escalonador.escalonar()
             self.quantum_atual = 0
 
