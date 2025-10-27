@@ -45,6 +45,7 @@ class App(customtkinter.CTk):
         # Iniciar a simulação
         config_file = "config_livro_rr.txt"  # Nome do arquivo de configuração
         self.sistema_operacional = SistemaOperacional(config_file)
+        self.sistema_operacional.executar_tick()  # Executa o primeiro tick para iniciar a simulação
 
         # Create control frame for buttons
         self.control_frame = customtkinter.CTkFrame(self)
