@@ -150,7 +150,7 @@ class GanttDiagram(customtkinter.CTkFrame):
             else:
                 fill_color = "white"
             
-            border_width = 4
+            border_width = 6
 
             # Cria o retângulo sem borda
             self.canvas.create_rectangle(x0, y0, x1, y1, fill=fill_color, outline="")
