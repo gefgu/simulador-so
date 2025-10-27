@@ -17,8 +17,8 @@ class GanttDiagram(customtkinter.CTkFrame):
 
         # Margins for labels
         self.margin_left = 120
-        self.margin_top = 160
-        self.margin_bottom = 160
+        self.margin_top = 80
+        self.margin_bottom = 80
         self.margin_right = 60
 
         # Recebe a quantidade de tarefas e o tempo máximo para configurar o diagrama de Gantt
@@ -28,14 +28,19 @@ class GanttDiagram(customtkinter.CTkFrame):
         # O tempo máximo deve ser usado para definir a escala do diagrama, e atualizado conforme necessário
         self.max_time = current_time + 1  # Adiciona uma margem extra
 
-
         self.create_gantt_chart()
+        
+        # Bind resize event
+        self.canvas.bind("<Configure>", self._on_canvas_resize)
         self.after_idle(self.draw_grid)
 
     def create_gantt_chart(self):
-        self.canvas = customtkinter.CTkCanvas(self, bg="white")
-
+        self.canvas = customtkinter.CTkCanvas(self, bg="white", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
+
+    def _on_canvas_resize(self, event):
+        # Redraw when canvas is resized
+        self.draw_grid()
 
     def draw_grid(self):
         # Limpa o canvas antes de desenhar a grade
@@ -43,16 +48,17 @@ class GanttDiagram(customtkinter.CTkFrame):
         if self.max_time == 0 or self.n_tarefas == 0: # Não tem nada para desenhar ainda
             return
 
-        # canvas_width = self.canvas.winfo_width()
-        # canvas_height = self.canvas.winfo_height()
-        canvas_width = 1920
-        canvas_height = 1080
-
+        # Get actual canvas dimensions
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        # Don't draw if canvas hasn't been laid out yet
+        if canvas_width <= 1 or canvas_height <= 1:
+            return
 
         usable_width = canvas_width - self.margin_left - self.margin_right
         usable_height = canvas_height - self.margin_top - self.margin_bottom
 
-        print(usable_width, usable_height)
         cell_width = usable_width / self.max_time
         cell_height = usable_height / self.n_tarefas
 
@@ -60,18 +66,13 @@ class GanttDiagram(customtkinter.CTkFrame):
         for i in range(self.n_tarefas + 1):
             y = self.margin_top + i * cell_height
             if i == (self.n_tarefas):
-                self.canvas.create_line(self.margin_left, y, canvas_width - self.margin_right, y, fill="black")
-            else:
-                # Outras linha: cinza e pontilhada
-                # self.canvas.create_line(self.margin_left, y, canvas_width - self.margin_right, y, fill="gray", dash=(5, 3))
-                pass
+                self.canvas.create_line(self.margin_left, y, canvas_width - self.margin_right, y, fill="black", width=2)
         
-
         # Desenha linhas verticais
         for j in range(self.max_time + 1):
             x = self.margin_left + j * cell_width
             if j == 0:
-                self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="black")
+                self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="black", width=2)
             else:
                 # Outras linha: cinza e pontilhada
                 self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom + 8, fill="gray", dash=(5, 3))
@@ -103,10 +104,9 @@ class GanttDiagram(customtkinter.CTkFrame):
 
         tempo_atual = self.max_time - 1
 
-        # canvas_width = self.canvas.winfo_width()
-        # canvas_height = self.canvas.winfo_height()
-        canvas_width = 1920
-        canvas_height = 1080
+        # Get actual canvas dimensions
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
 
         usable_width = canvas_width - self.margin_left - self.margin_right
         usable_height = canvas_height - self.margin_top - self.margin_bottom
@@ -120,7 +120,6 @@ class GanttDiagram(customtkinter.CTkFrame):
 
         if tarefa_foi_concluida:
             tempo_termino = tempos_de_execucao[-1]
-
         else:
             tempo_termino = tempo_atual
 
@@ -131,7 +130,7 @@ class GanttDiagram(customtkinter.CTkFrame):
             y_center, 
             text=f"{id}", 
             fill="black", 
-            font=("Arial", 18)
+            font=("Arial", 18, "bold")
         )
 
         # Desenha retângulos para cada unidade de tempo desde ingresso até término
