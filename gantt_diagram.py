@@ -75,15 +75,19 @@ class GanttDiagram(customtkinter.CTkFrame):
                 self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="black", width=2)
             else:
                 # Outras linha: cinza e pontilhada
-                self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom + 8, fill="gray", dash=(5, 3))
+                self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="gray", dash=(5, 3))
+
+            # Desenha a linha preta dos ticks dos números
+            self.canvas.create_line(x, canvas_height - self.margin_bottom, x, 
+                                    canvas_height - self.margin_bottom + 16, fill="black", width=2)
 
             # Adiciona o número abaixo de cada coluna
             self.canvas.create_text(
                 x, 
-                canvas_height - self.margin_bottom + 20, 
+                canvas_height - self.margin_bottom + 40, 
                 text=str(j), 
                 fill="black", 
-                font=("Arial", 18)
+                font=("Arial", 32)
             )
 
         self.draw_tarefas(self.tarefas)
@@ -128,9 +132,9 @@ class GanttDiagram(customtkinter.CTkFrame):
         self.canvas.create_text(
             self.margin_left - 60, 
             y_center, 
-            text=f"{id}", 
+            text=format_id_with_subscript(self, id), 
             fill="black", 
-            font=("Arial", 18, "bold")
+            font=("Arial", 36, "bold")
         )
 
         # Desenha retângulos para cada unidade de tempo desde ingresso até término
@@ -183,3 +187,22 @@ def number_in_end_sequence(x, seq):
         return True
 
     return False
+
+
+# Apenas para embelezar o display do ID
+# Fonte: COPILOT
+def format_id_with_subscript(self, id_string):
+    """Convert t_1 to t₁ using unicode subscripts"""
+    subscript_map = {
+        '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+        '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'
+    }
+    
+    if '_' in id_string:
+        parts = id_string.split('_')
+        base = parts[0]
+        number = parts[1]
+        subscript = ''.join(subscript_map.get(c, c) for c in number)
+        return f"{base}{subscript}"
+    
+    return id_string
