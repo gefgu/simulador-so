@@ -4,6 +4,9 @@ from collections import deque
 
 from config_handler import get_config_values
 from gantt_diagram import GanttDiagram
+from sistema_operacional import SistemaOperacional
+
+# Desacoplar a lógica do algoritmo da interface gráfica
 
 class App(customtkinter.CTk):
     def __init__(self):
@@ -13,6 +16,45 @@ class App(customtkinter.CTk):
         self.title("Simulador SO")
 
         self.gantt_diagram = None
+
+        # Create main menu frame
+        self.menu_frame = customtkinter.CTkFrame(self)
+        self.menu_frame.pack(fill="both", expand=True)
+        
+        # Title
+        self.title_label = customtkinter.CTkLabel(
+            self.menu_frame,
+            text="Simulador de SO",
+            font=("Arial", 48, "bold")
+        )
+        self.title_label.pack(pady=(200, 50))
+        
+        # Start button
+        self.start_button = customtkinter.CTkButton(
+            self.menu_frame,
+            text="Iniciar",
+            font=("Arial", 24),
+            width=200,
+            height=60,
+            command=self.iniciar_simulacao
+        )
+        self.start_button.pack(pady=20)
+
+    def iniciar_simulacao(self):
+        # Remover o menu
+        self.menu_frame.destroy()
+
+        # Iniciar a simulação
+        config_file = "config.txt"  # Nome do arquivo de configuração
+        self.sistema_operacional = SistemaOperacional(config_file)
+
+        for i in range(100):
+            self.sistema_operacional.executar_tick()
+            current_time = self.sistema_operacional.get_relogio()
+            tarefas = self.sistema_operacional.get_tarefas_ingressadas()
+            self.create_gantt_diagram(current_time+1, tarefas)
+            self.update()
+            sleep(1)  # Pausa para visualizar a simulação
 
     
     def create_gantt_diagram(self, current_time, tarefas):
@@ -27,55 +69,7 @@ class App(customtkinter.CTk):
         if self.gantt_diagram:
             self.gantt_diagram.draw_grid()
 
-def algoritmo(tarefas):
-    tempo_atual = 0
-    fila_tarefas_nao_ingressadas = deque(sorted(tarefas, key=lambda x: x["ingresso"]))
-    fila_tarefas_prontas = deque()
-    tarefa_em_execucao = None
-
-    tarefas_executadas = []
-
-    while fila_tarefas_nao_ingressadas or fila_tarefas_prontas:
-        # Adiciona tarefas ingressadas na fila de prontas
-        while (fila_tarefas_nao_ingressadas and
-               fila_tarefas_nao_ingressadas[0]["ingresso"] <= tempo_atual):
-            tarefa = fila_tarefas_nao_ingressadas.popleft()
-            tarefa["tempo_restante"] = tarefa["duracao"]
-            fila_tarefas_prontas.append(tarefa)
-
-        # Se houver tarefas prontas, executa a próxima
-        if fila_tarefas_prontas:
-            tarefa_em_execucao = fila_tarefas_prontas.popleft()
-            # Simula a execução da tarefa por 1 unidade de tempo
-            tarefa_em_execucao["tempo_restante"] -= 1
-
-
-            # Registra o tempo de execução
-            if "tempos_de_execucao" not in tarefa_em_execucao:
-                tarefa_em_execucao["tempos_de_execucao"] = []
-            tarefa_em_execucao["tempos_de_execucao"].append(tempo_atual)
-
-            # Se a tarefa ainda não terminou, re-adiciona na fila de prontas
-            if tarefa_em_execucao["tempo_restante"] > 0:
-                fila_tarefas_prontas.append(tarefa_em_execucao)
-            else:
-                tarefas_executadas.append(tarefa_em_execucao)
-
-        tempo_atual += 1
-
-    return tarefas_executadas
-
-
 if __name__ == "__main__":
-    config = get_config_values("config.txt")
-
-    print(config)
-
-    tarefas_executadas = algoritmo(config["tarefas"])
-
-    print(tarefas_executadas)
-
     app = App()
-    app.create_gantt_diagram(current_time=25, tarefas=tarefas_executadas)
-
     app.mainloop()
+    
