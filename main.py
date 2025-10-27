@@ -1,12 +1,9 @@
 from time import sleep
 import customtkinter
 from collections import deque
-
-from config_handler import get_config_values
+from PIL import ImageGrab
 from gantt_diagram import GanttDiagram
 from sistema_operacional import SistemaOperacional
-
-# Desacoplar a lógica do algoritmo da interface gráfica
 
 class App(customtkinter.CTk):
     def __init__(self):
@@ -53,16 +50,43 @@ class App(customtkinter.CTk):
         self.control_frame = customtkinter.CTkFrame(self)
         self.control_frame.pack(side="bottom", fill="x", padx=20, pady=20)
 
+        # Create a sub-frame to hold buttons horizontally
+        self.buttons_frame = customtkinter.CTkFrame(self.control_frame)
+        self.buttons_frame.pack(pady=10)
+
+        # Salvar imagem button
+        self.screenshot_button = customtkinter.CTkButton(
+            self.buttons_frame,
+            text="Salvar imagem",
+            font=("Arial", 18),
+            width=200,
+            height=50,
+            command=self.take_screenshot
+        )
+        self.screenshot_button.pack(side="left", padx=10)
+
+        # Avançar até o fim button
+        self.run_to_end_button = customtkinter.CTkButton(
+            self.buttons_frame,
+            text="Avançar até o fim",
+            font=("Arial", 18),
+            width=200,
+            height=50,
+            command=self.avancar_ate_fim
+        )
+        self.run_to_end_button.pack(side="left", padx=10)
+
+
         # Próximo tick button
         self.next_tick_button = customtkinter.CTkButton(
-            self.control_frame,
+            self.buttons_frame,
             text="Próximo tick",
             font=("Arial", 18),
             width=200,
             height=50,
             command=self.proximo_tick
         )
-        self.next_tick_button.pack(pady=10)
+        self.next_tick_button.pack(side="left", padx=10)
 
         # Initial diagram
         self.atualizar_diagrama()
@@ -74,6 +98,36 @@ class App(customtkinter.CTk):
 
         if (self.sistema_operacional.simulacao_terminada()):
             self.next_tick_button.configure(state="disabled")
+
+    def avancar_ate_fim(self):
+        """Run simulation until completion"""
+        while not self.sistema_operacional.simulacao_terminada():
+            self.sistema_operacional.executar_tick()
+        
+        self.atualizar_diagrama()
+        self.update()
+        self.next_tick_button.configure(state="disabled")
+        self.run_to_end_button.configure(state="disabled")
+
+    def take_screenshot(self):
+        """Take a screenshot of the Gantt diagram"""
+        if self.gantt_diagram and self.gantt_diagram.canvas:
+            # Get canvas coordinates
+            x = self.gantt_diagram.canvas.winfo_rootx()
+            y = self.gantt_diagram.canvas.winfo_rooty()
+            width = self.gantt_diagram.canvas.winfo_width()
+            height = self.gantt_diagram.canvas.winfo_height()
+            
+            # Capture the canvas area
+            screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
+            
+            # Generate filename with timestamp
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"gantt_diagram_{timestamp}.png"
+            
+            screenshot.save(filename)
+            print(f"Screenshot saved as {filename}")
 
     def atualizar_diagrama(self):
         """Update the Gantt diagram with current state"""
