@@ -1,9 +1,8 @@
-from time import sleep
 import customtkinter
-from collections import deque
 from PIL import ImageGrab
 from gantt_diagram import GanttDiagram
 from sistema_operacional import SistemaOperacional
+from datetime import datetime
 
 class App(customtkinter.CTk):
     def __init__(self):
@@ -110,6 +109,9 @@ class App(customtkinter.CTk):
         self.next_tick_button.configure(state="disabled")
         self.run_to_end_button.configure(state="disabled")
 
+    
+    # Função para Tirar foto do diagrama de Gantt
+    # Fonte: GitHub Copilot
     def take_screenshot(self):
         """Take a screenshot of the Gantt diagram"""
         if self.gantt_diagram and self.gantt_diagram.canvas:
@@ -123,7 +125,7 @@ class App(customtkinter.CTk):
             screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
             
             # Generate filename with timestamp
-            from datetime import datetime
+            
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"gantt_diagram_{timestamp}.png"
             
