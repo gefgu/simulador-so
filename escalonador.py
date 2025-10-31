@@ -15,17 +15,18 @@ from tcb import TCB
 class Escalonador:
     def __init__(self, nome_escalonador: str):
         self.nome_escalonador = nome_escalonador.strip().lower()
+
+        # Dicionário para mapear algoritmo à função
         self.algoritmos_disponiveis = {
             "fifo": self.fifo,
-            # Outros algoritmos podem ser adicionados aqui
-        }
-        self.estrutura_fila = {
-            "fifo": queue.Queue,
-            # Outros algoritmos podem ser adicionados aqui
-            # usar queue.PriorityQueue para heap
+            "srtf": self.srtf,
         }
 
-        self.fila_tarefas_prontas = self.estrutura_fila.get(self.nome_escalonador, queue.Queue)()
+        # Escolhe a estrutura de dados correta para a fila de prontas
+        if self.nome_escalonador == "srtf":
+            self.fila_tarefas_prontas = []  # SRTF usa lista para encontrar o mínimo
+        else:
+            self.fila_tarefas_prontas = queue.Queue() # FIFO/RR usa uma fila real
 
     def escalonar(self):
         if self.nome_escalonador in self.algoritmos_disponiveis:
@@ -35,10 +36,21 @@ class Escalonador:
             return self.fifo()
         
     def adicionar_tarefa_pronta(self, tarefa: TCB):
-        # Adicionar tarefa na fila de prontas para heap também.
-        self.fila_tarefas_prontas.put(tarefa)
+        if isinstance(self.fila_tarefas_prontas, queue.Queue):
+            self.fila_tarefas_prontas.put(tarefa)
+        else:
+            self.fila_tarefas_prontas.append(tarefa)
 
     def fifo(self):
+        # Esta função agora serve para o Round Robin
         if not self.fila_tarefas_prontas.empty():
             return self.fila_tarefas_prontas.get()
         return None
+
+    def srtf(self):
+        if not self.fila_tarefas_prontas:
+            return None
+        
+        tarefa_escolhida = min(self.fila_tarefas_prontas, key=lambda t: t['tempo_restante'])
+        self.fila_tarefas_prontas.remove(tarefa_escolhida)
+        return tarefa_escolhida
