@@ -49,96 +49,81 @@ class SistemaOperacional:
         with open(config_file, 'r') as file:
             lines = file.readlines()
 
-        # Lê escalonador e quantum no início do arquivo
-        self.nome_escalonador = lines[0].split(";")[0].strip()
+        self.nome_escalonador = lines[0].split(";")[0].strip().lower()
         self.quantum = int(lines[0].split(";")[1].strip())
-
-        # Lê tarefas
+        
+        self.tarefas: list[TCB] = []
         for line in lines[1:]:
             parts = line.strip().split(';')
+            duracao_tarefa = int(parts[3])
             tarefa = TCB(
                 id=parts[0],
                 cor=parts[1],
                 ingresso=int(parts[2]),
-                duracao=int(parts[3]),
+                duracao=duracao_tarefa,
                 prioridade=int(parts[4]),
+                tempo_restante=duracao_tarefa, # Importante para SRTF
                 tempos_de_execucao=[],
                 lista_eventos=[]
             )
-            print(tarefa)
-
-            eventos_str = parts[5] if len(parts) > 5 else ""
-            if eventos_str:
-                eventos_parts = eventos_str.split(';')
-                for evento_str in eventos_parts:
-                    evento_details = evento_str.split(':')
-                    evento = {
-                        "tipo": evento_details[0],
-                        "inicio": int(evento_details[1].split('-')[0]),
-                        "duracao": int(evento_details[1].split('-')[1])
-                    }
-                    tarefa["lista_eventos"].append(evento)
-
             self.tarefas.append(tarefa)
 
-        # Para facilitar, armazena as TCBs em um dict {ingresso: [TCBs que começam nesse ingresso]}
         self.tarefas_no_ingresso = {}
         for tarefa in self.tarefas:
             if tarefa["ingresso"] not in self.tarefas_no_ingresso:
                 self.tarefas_no_ingresso[tarefa["ingresso"]] = []
             self.tarefas_no_ingresso[tarefa["ingresso"]].append(tarefa)
 
-        # Inicializa escalonador
         self.escalonador = Escalonador(self.nome_escalonador)
+        self.tarefa_executando: TCB | None = None
+        self.tarefas_finalizadas: list[TCB] = []
+
+        # Define quais algoritmos causam preempção na CHEGADA de uma nova tarefa
+        self.preempcao_por_chegada = self.nome_escalonador in ["srtf"]
 
     def executar_tick(self):
-        tarefa_foi_adicionada = False
-
-        # Adiciona as tarefas ingressadas na fila de prontas
-        if self.relogio in self.tarefas_no_ingresso: # Tem tarefa que começa nesse momento?
-            
-            tarefa_foi_adicionada = True
-            for tarefa in self.tarefas_no_ingresso[self.relogio]:
+        # 1. Adiciona novas tarefas que chegaram neste tick
+        if self.relogio in self.tarefas_no_ingresso:
+            novas_tarefas = self.tarefas_no_ingresso[self.relogio]
+            for tarefa in novas_tarefas:
                 self.escalonador.adicionar_tarefa_pronta(tarefa)
-
-            if (self.tarefa_executando is not None) and (self.chama_escalonador_entrada): # Se tiver uma tarefa em execução, coloca de volta na fila de prontas
+            
+            # Se o algoritmo é preemptivo por chegada (SRTF), a tarefa atual deve
+            # voltar para a fila para ser reavaliada com as novas que chegaram.
+            if self.tarefa_executando and self.preempcao_por_chegada:
                 self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
                 self.tarefa_executando = None
 
-        # PLACEHOLDER: Verifica se uma tarefa foi de suspensa (IO, Mutex) para o pronta (se sim, adiciona na fila de prontas)
-
-        # Se houver uma nova tarefa ou acabar o quantum, manda para o algoritmo de escalonamento selecionado
-        # (IMPLEMENTAR ALGORITMOS DE ESCALONAMENTO AQUI)
-        if (tarefa_foi_adicionada and self.chama_escalonador_entrada) or (self.quantum_atual == 0):
-            self.tarefa_executando = self.escalonador.escalonar()
-            self.quantum_atual = 0
-
+        # 2. Se não há tarefa executando, chama o escalonador para escolher a próxima
         if self.tarefa_executando is None:
-            # Nenhuma tarefa para executar nesse tick
+            self.tarefa_executando = self.escalonador.escalonar()
+            self.quantum_atual = 0 # Reseta o quantum para a nova tarefa
+
+        # 3. Se ainda assim não houver tarefa (fila vazia), apenas avança o relógio
+        if self.tarefa_executando is None:
             self.relogio += 1
-            self.quantum_atual = 0
             return
 
-        # Conta a tarefa em execução como tendo sido executada por 1 unidade de tempo
-        # (IMPLEMENTAR CONTAGEM DE TEMPO DE EXECUÇÃO AQUI)
+        # 4. Executa a tarefa atual por um tick
         self.tarefa_executando["tempos_de_execucao"].append(self.relogio)
+        if "tempo_restante" in self.tarefa_executando: # Para SRTF
+             self.tarefa_executando["tempo_restante"] -= 1
+        
+        self.quantum_atual += 1
 
-        # Verifica se a tarefa terminou
-        if len(self.tarefa_executando["tempos_de_execucao"]) >= self.tarefa_executando["duracao"]:
+        # 5. Verifica se a tarefa terminou
+        duracao_executada = len(self.tarefa_executando["tempos_de_execucao"])
+        if duracao_executada >= self.tarefa_executando["duracao"]:
             print(f"Tarefa {self.tarefa_executando['id']} terminou.")
             self.tarefas_finalizadas.append(self.tarefa_executando)
-            self.tarefa_executando = None
-            self.quantum_atual = 0  # Reset quantum
-        else:
-            # Tarefa não terminou, incrementa quantum
-            self.quantum_atual += 1
-            
-            # Se quantum acabou, coloca tarefa de volta no final da fila
-            if self.quantum_atual >= self.quantum:
-                self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
-                self.tarefa_executando = None
-                self.quantum_atual = 0
+            self.tarefa_executando = None # Libera a CPU
         
+        # 6. Se não terminou, verifica se o quantum estourou (preempção do Round Robin)
+        elif self.quantum_atual >= self.quantum:
+            self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
+            self.tarefa_executando = None # Libera a CPU para o próximo
+
+        # 7. Avança o relógio do sistema
         self.relogio += 1
 
     def get_tarefas_ingressadas(self) -> list[TCB]:

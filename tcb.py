@@ -23,6 +23,7 @@ class TCB(TypedDict):
     ingresso: int
     duracao: int
     prioridade: int
+    tempo_restante: int
     tempos_de_execucao: list[int]
     lista_eventos: list[Evento]  # Lista de dicionários (tipo, inicio, duracao)
 
