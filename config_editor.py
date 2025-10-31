@@ -23,12 +23,11 @@ class ConfigEditor(customtkinter.CTkFrame):
 
         self.algorithm_picker = None
         self.quantum_entry = None
-        self.menu_frame = frame
+        self.main_frame = frame
         self.voltar_callback = voltar_callback
         self.filename_entry = None
         self.original_config_file = config_file
         self.tasks_entries = []
-
 
 
         self.quantum = 2
@@ -41,9 +40,24 @@ class ConfigEditor(customtkinter.CTkFrame):
             self.nome_escalonador = dados_config["nome_escalonador"]
             self.tarefas = dados_config["tarefas"]
 
+        self.menu_frame = customtkinter.CTkScrollableFrame(
+            self.main_frame,
+            width=1800,
+            height=900
+        )
+        self.menu_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+
+
         self.cria_menu_edicao()
 
     def cria_menu_edicao(self):
+        """Cria o menu de edição de configurações"""
+        # Limpa frame anterior
+        for widget in self.menu_frame.winfo_children():
+            widget.destroy()
+
+
         title_label = customtkinter.CTkLabel(
             self.menu_frame, text="Configurações", font=("Arial", 48, "bold")
         )
@@ -56,6 +70,12 @@ class ConfigEditor(customtkinter.CTkFrame):
 
         buttons_frame = customtkinter.CTkFrame(self.menu_frame, fg_color="transparent")
         buttons_frame.pack(pady=40)
+
+        add_button = customtkinter.CTkButton(
+            buttons_frame, text="Adicionar Tarefa", font=("Arial", 24),
+            width=200, height=60, command=self.adiciona_nova_tarefa
+        )
+        add_button.pack(side="left", padx=10)
 
         voltar_button = customtkinter.CTkButton(
             buttons_frame, text="Voltar", font=("Arial", 24),
@@ -161,13 +181,31 @@ class ConfigEditor(customtkinter.CTkFrame):
 
     def create_task_list(self):
         """Cria o fórmulário da lista de tarefas atualmente sendo configuradas"""
+        self.tasks_entries = []  # Clear the list first
         for tarefa in self.tarefas:
             self.tasks_entries.append(self.create_task_config_row(tarefa))
+
+    def remove_task_row(self, entries_dict):
+        """Remove uma linha de tarefa do formulário"""
+        # Remove from the tasks_entries list
+        if entries_dict in self.tasks_entries:
+            self.tasks_entries.remove(entries_dict)
+        # Recreate the menu
+        self.cria_menu_edicao()
+
+    def adiciona_nova_tarefa(self):
+        """Adiciona uma nova linha de tarefa ao formulário"""
+        nova_tarefa = cria_tarefa_padrao()
+        self.tarefas.append(nova_tarefa)
+        self.cria_menu_edicao()
 
     def create_task_config_row(self, tarefa: TCB):
         """Cria uma linha com o espaço para o id, cor, ingresso, duração e prioridade da tarefa"""
         task_frame = customtkinter.CTkFrame(self.menu_frame, fg_color="transparent")
         task_frame.pack(pady=20)
+
+        # Store references to the entries in a dictionary
+        entries_dict = {}
 
         # ID
         id_label = customtkinter.CTkLabel(
@@ -179,6 +217,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         id_entry.insert(0, tarefa["id"])
         id_entry.pack(side="left", padx=5)
+        entries_dict['id'] = id_entry
 
         # Cor
         color_label = customtkinter.CTkLabel(
@@ -190,8 +229,9 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         color_entry.insert(0, tarefa["cor"])
         color_entry.pack(side="left", padx=5)
+        entries_dict['cor'] = color_entry
 
-        # Ingress
+        # Ingresso
         ingresso_label = customtkinter.CTkLabel(
             task_frame, text="Ingresso:", font=("Arial", 18)
         )
@@ -201,6 +241,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         ingresso_entry.insert(0, str(tarefa["ingresso"]))
         ingresso_entry.pack(side="left", padx=5)
+        entries_dict['ingresso'] = ingresso_entry
 
         # Duração
         duracao_label = customtkinter.CTkLabel(
@@ -212,6 +253,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         duracao_entry.insert(0, str(tarefa["duracao"]))
         duracao_entry.pack(side="left", padx=5)
+        entries_dict['duracao'] = duracao_entry
 
         # Prioridade
         prioridade_label = customtkinter.CTkLabel(
@@ -223,30 +265,36 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         prioridade_entry.insert(0, str(tarefa["prioridade"]))
         prioridade_entry.pack(side="left", padx=5)
-        return task_frame
+        entries_dict['prioridade'] = prioridade_entry
+
+        remove_button = customtkinter.CTkButton(
+            task_frame, text="Remover", font=("Arial", 18),
+            width=100, height=40, command=lambda: self.remove_task_row(entries_dict)
+        )
+        remove_button.pack(side="left", padx=10)
+
+        return entries_dict
 
     def voltar_sem_salvar(self):
         """Callback para voltar ao menu principal sem salvar as configurações"""
+        self.menu_frame.destroy()
         self.voltar_callback(self.original_config_file)
 
     def voltar_e_salvar(self):
         """Callback para voltar ao menu principal e salvar as configurações"""
-
         filename = self.filename_entry.get()
         nome_escalonador = self.algorithm_picker.get()
         quantum = self.quantum
 
         with open(filename, 'w') as file:
             file.write(f"{nome_escalonador};{quantum}\n")
-            for task_frame in self.tasks_entries:
-                entries = task_frame.winfo_children()
-                id = entries[1].get()
-                cor = entries[3].get()
-                ingresso = entries[5].get()
-                duracao = entries[7].get()
-                prioridade = entries[9].get()
+            for entries_dict in self.tasks_entries:
+                id = entries_dict['id'].get()
+                cor = entries_dict['cor'].get()
+                ingresso = entries_dict['ingresso'].get()
+                duracao = entries_dict['duracao'].get()
+                prioridade = entries_dict['prioridade'].get()
                 file.write(f"{id};{cor};{ingresso};{duracao};{prioridade};\n")
 
-        # Aqui você pode adicionar a lógica para salvar as configurações
-        # Por enquanto, apenas chama o callback de voltar
+        self.menu_frame.destroy()
         self.voltar_callback(filename)
