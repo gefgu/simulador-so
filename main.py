@@ -1,5 +1,6 @@
 import customtkinter
 from PIL import ImageGrab
+from config_editor import ConfigEditor
 from gantt_diagram import GanttDiagram
 from sistema_operacional import SistemaOperacional
 import copy  # Importante para salvar o histórico de estados
@@ -15,7 +16,9 @@ class App(customtkinter.CTk):
         self.gantt_diagram = None
         self.sistema_operacional = None
         self.historico_estados = []  # Para guardar os "snapshots" da simulação
-        self.config_file = "config_livro_rr.txt"
+        self.config_file = "config_padrao.txt"
+        self.config_editor = None
+        self.config_frame = None
 
         # Widgets da tela de simulação (declarados aqui para fácil acesso)
         self.simulation_frame = None
@@ -55,6 +58,12 @@ class App(customtkinter.CTk):
              width=250, height=60
         )
         self.selected_file_label.pack(pady=(0, 60))
+
+        config_editor_button = customtkinter.CTkButton(
+            self.menu_frame, text="Abrir Configuração", font=("Arial", 24),
+            width=250, height=60, command=self.cria_menu_edicao
+        )
+        config_editor_button.pack(pady=80)
 
     def iniciar_simulacao(self):
         """Inicia a simulação, destruindo o menu e construindo a UI de simulação."""
@@ -238,6 +247,17 @@ class App(customtkinter.CTk):
             filename = f"gantt_diagram_{timestamp}.png"
             screenshot.save(filename)
             print(f"Screenshot salvo como {filename}")
+
+    def volta_menu_edicao(self):
+        self.config_frame.destroy()
+        self.create_menu_frame()
+
+    def cria_menu_edicao(self):
+        self.menu_frame.destroy()
+        self.config_frame = customtkinter.CTkFrame(self, fg_color="transparent")
+        self.config_frame.pack(fill="both", expand=True)
+
+        self.config_editor = ConfigEditor(self, self.config_frame, self.config_file, self.volta_menu_edicao)
 
 if __name__ == "__main__":
     app = App()
