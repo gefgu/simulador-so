@@ -80,6 +80,7 @@ class SistemaOperacional:
 
         # Define quais algoritmos causam preempção na CHEGADA de uma nova tarefa
         self.preempcao_por_chegada = self.nome_escalonador in ["srtf"]
+        self.preempcao_por_quantum = self.nome_escalonador in ["fifo"]  # Round Robin é uma variação do FIFO
 
     def executar_tick(self):
         # 1. Adiciona novas tarefas que chegaram neste tick
@@ -119,9 +120,10 @@ class SistemaOperacional:
             self.tarefa_executando = None # Libera a CPU
         
         # 6. Se não terminou, verifica se o quantum estourou (preempção do Round Robin)
-        elif self.quantum_atual >= self.quantum:
+        elif self.quantum_atual >= self.quantum and self.preempcao_por_quantum:
             self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
             self.tarefa_executando = None # Libera a CPU para o próximo
+            self.quantum_atual = 0
 
         # 7. Avança o relógio do sistema
         self.relogio += 1

@@ -47,13 +47,14 @@ class App(customtkinter.CTk):
             self.menu_frame, text="Iniciar Simulação", font=("Arial", 24),
             width=250, height=60, command=self.iniciar_simulacao
         )
-        start_button.pack(pady=20)
+        start_button.pack(pady=80)
 
         self.selected_file_label = customtkinter.CTkButton(
             self.menu_frame, text="Nenhum arquivo selecionado", 
-            font=("Arial", 18), command=self.seleciona_config
+            font=("Arial", 18), command=self.seleciona_config,
+             width=250, height=60
         )
-        self.selected_file_label.pack(pady=(0, 20))
+        self.selected_file_label.pack(pady=(0, 60))
 
     def iniciar_simulacao(self):
         """Inicia a simulação, destruindo o menu e construindo a UI de simulação."""
@@ -208,12 +209,12 @@ class App(customtkinter.CTk):
         self.gantt_diagram.tkraise()
         self.control_frame.tkraise()
 
-    
     def seleciona_config(self):
         file_path = filedialog.askopenfilename(
             title="Selecione um arquivo de configuração",
             initialdir=".",  # Changed from "/" to current directory
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]  # Fixed format
+            filetypes=[("Text files", "*.txt")],  # Fixed format
+            initialfile="./config_padrao.txt"
         )
         if file_path:
             print(f"Arquivo selecionado: {file_path}")
