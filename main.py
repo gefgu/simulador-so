@@ -4,6 +4,7 @@ from gantt_diagram import GanttDiagram
 from sistema_operacional import SistemaOperacional
 import copy  # Importante para salvar o histórico de estados
 from datetime import datetime
+from tkinter import filedialog
 
 class App(customtkinter.CTk):
     def __init__(self):
@@ -14,6 +15,7 @@ class App(customtkinter.CTk):
         self.gantt_diagram = None
         self.sistema_operacional = None
         self.historico_estados = []  # Para guardar os "snapshots" da simulação
+        self.config_file = "config_livro_rr.txt"
 
         # Widgets da tela de simulação (declarados aqui para fácil acesso)
         self.simulation_frame = None
@@ -26,6 +28,8 @@ class App(customtkinter.CTk):
         self.prev_tick_button = None
         self.next_tick_button = None
         self.run_to_end_button = None
+
+        self.selected_file_label = None
 
         self.create_menu_frame()
 
@@ -45,14 +49,19 @@ class App(customtkinter.CTk):
         )
         start_button.pack(pady=20)
 
+        self.selected_file_label = customtkinter.CTkButton(
+            self.menu_frame, text="Nenhum arquivo selecionado", 
+            font=("Arial", 18), command=self.seleciona_config
+        )
+        self.selected_file_label.pack(pady=(0, 20))
+
     def iniciar_simulacao(self):
         """Inicia a simulação, destruindo o menu e construindo a UI de simulação."""
         self.menu_frame.destroy()
         self.historico_estados = []  # Limpa o histórico para uma nova simulação
 
-        config_file = "config_livro_rr.txt"
-        self.sistema_operacional = SistemaOperacional(config_file)
-        
+        self.sistema_operacional = SistemaOperacional(self.config_file)
+
         # --- Construção da Interface de Simulação ---
         self.simulation_frame = customtkinter.CTkFrame(self, fg_color="transparent")
         self.simulation_frame.pack(fill="both", expand=True)
@@ -114,10 +123,13 @@ class App(customtkinter.CTk):
         """Salva o estado atual, executa um tick e atualiza a UI."""
         if not self.sistema_operacional.simulacao_terminada():
             # Salva o estado ATUAL antes de executar o próximo tick
-            self.historico_estados.append(copy.deepcopy(self.sistema_operacional))
-            
-            self.sistema_operacional.executar_tick()
-            self.atualizar_diagrama()
+            try:
+                self.historico_estados.append(copy.deepcopy(self.sistema_operacional)) # Adicionar um método que funcione com o Queue depois
+            except Exception as e:
+                print(f"Erro ao salvar estado para histórico: {e}")
+            finally:
+                self.sistema_operacional.executar_tick()
+                self.atualizar_diagrama()
 
         # Atualiza o estado dos botões
         if self.sistema_operacional.simulacao_terminada():
@@ -144,9 +156,13 @@ class App(customtkinter.CTk):
         """Executa a simulação até o fim, salvando cada passo no histórico."""
         while not self.sistema_operacional.simulacao_terminada():
             # Ainda salvamos o histórico para poder regredir passo a passo depois
-            self.historico_estados.append(copy.deepcopy(self.sistema_operacional))
-            self.sistema_operacional.executar_tick()
-        
+            try:
+                self.historico_estados.append(copy.deepcopy(self.sistema_operacional)) # Adicionar um método que funcione com o Queue depois
+            except Exception as e:
+                print(f"Erro ao salvar estado para histórico: {e}")
+            finally:
+                self.sistema_operacional.executar_tick()
+
         self.atualizar_diagrama()
         self.update() # Força a atualização da UI
         
@@ -171,11 +187,12 @@ class App(customtkinter.CTk):
         so = self.sistema_operacional
         current_time = so.get_relogio()
         tarefas = so.get_tarefas_ingressadas()
+        tarefa_executando = so.get_tarefa_executando()
         
         # Atualiza labels de informação
         self.relogio_label.configure(text=f"Tick: {current_time}")
-        if so.tarefa_executando:
-            self.tarefa_exec_label.configure(text=f"Executando: {so.tarefa_executando['id']}")
+        if tarefa_executando:
+            self.tarefa_exec_label.configure(text=f"Executando: {tarefa_executando['id']}")
         else:
             self.tarefa_exec_label.configure(text="Executando: Nenhuma")
 
@@ -192,8 +209,17 @@ class App(customtkinter.CTk):
         self.control_frame.tkraise()
 
     
-    # Função para Tirar foto do diagrama de Gantt
-    # Fonte: GitHub Copilot
+    def seleciona_config(self):
+        file_path = filedialog.askopenfilename(
+            title="Selecione um arquivo de configuração",
+            initialdir=".",  # Changed from "/" to current directory
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]  # Fixed format
+        )
+        if file_path:
+            print(f"Arquivo selecionado: {file_path}")
+            self.config_file = file_path  # Save the selected file path
+            self.selected_file_label.configure(text=f"Selecionado: {file_path.split('/')[-1]}")  # Show only filename
+
     def take_screenshot(self):
         """Tira um screenshot da área do diagrama de Gantt."""
         if self.gantt_diagram and self.gantt_diagram.canvas:

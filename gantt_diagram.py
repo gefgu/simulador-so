@@ -26,7 +26,8 @@ class GanttDiagram(customtkinter.CTkFrame):
         self.tarefas = tarefas
 
         # O tempo máximo deve ser usado para definir a escala do diagrama, e atualizado conforme necessário
-        self.max_time = current_time + 1  # Adiciona uma margem extra
+        self.max_time = current_time 
+        # + 1  # Adiciona uma margem extra
 
         self.create_gantt_chart()
         

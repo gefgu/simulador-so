@@ -134,3 +134,6 @@ class SistemaOperacional:
     
     def simulacao_terminada(self) -> bool:
         return len(self.tarefas_finalizadas) == len(self.tarefas)
+    
+    def get_tarefa_executando(self) -> TCB | None:
+        return self.tarefa_executando
