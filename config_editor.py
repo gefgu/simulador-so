@@ -1,17 +1,43 @@
 import customtkinter
 
+from config_handler import read_config
+from tcb import TCB
+
+def cria_tarefa_padrao() -> TCB:
+    """Cria uma tarefa padrão para preencher os campos inicialmente"""
+    return TCB(
+        id="T1",
+        cor="#FF0000",
+        ingresso=0,
+        duracao=5,
+        prioridade=1,
+        tempo_restante=5,
+        tempos_de_execucao=[],
+        lista_eventos=[]
+    )
+
 
 class ConfigEditor(customtkinter.CTkFrame):
-    def __init__(self, master, frame, config_file: str, voltar_callback):
+    def __init__(self, master, frame, voltar_callback, config_file: str):
         super().__init__(master)
 
         self.algorithm_picker = None
         self.quantum_entry = None
-
-        self.quantum_value = 2
-
         self.menu_frame = frame
         self.voltar_callback = voltar_callback
+
+
+
+        self.quantum = 2
+        self.nome_escalonador = "FIFO"
+        self.tarefas: list[TCB] = [cria_tarefa_padrao()]
+
+        dados_config = read_config(config_file)
+        if dados_config:
+            self.quantum = dados_config["quantum"]
+            self.nome_escalonador = dados_config["nome_escalonador"]
+            self.tarefas = dados_config["tarefas"]
+
         self.cria_menu_edicao()
 
     def cria_menu_edicao(self):
@@ -22,6 +48,8 @@ class ConfigEditor(customtkinter.CTkFrame):
 
         # Create algorithm and quantum pickers in the same row
         self.create_config_controls()
+
+        self.create_task_list()
 
         voltar_button = customtkinter.CTkButton(
             self.menu_frame, text="Voltar", font=("Arial", 24),
@@ -80,7 +108,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         # Quantum display
         self.quantum_entry = customtkinter.CTkLabel(
             quantum_controls,
-            text=str(self.quantum_value),
+            text=str(self.quantum),
             font=("Arial", 32, "bold"),
             width=100,
             height=50
@@ -100,18 +128,84 @@ class ConfigEditor(customtkinter.CTkFrame):
 
     def increment_quantum(self):
         """Increase quantum value"""
-        self.quantum_value += 1
-        self.quantum_entry.configure(text=str(self.quantum_value))
+        self.quantum += 1
+        self.quantum_entry.configure(text=str(self.quantum))
 
     def decrement_quantum(self):
         """Decrease quantum value (minimum 1)"""
-        if self.quantum_value > 1:
-            self.quantum_value -= 1
-            self.quantum_entry.configure(text=str(self.quantum_value))
+        if self.quantum > 1:
+            self.quantum -= 1
+            self.quantum_entry.configure(text=str(self.quantum))
+
+
+    def create_task_list(self):
+        """Cria o fórmulário da lista de tarefas atualmente sendo configuradas"""
+        for tarefa in self.tarefas:
+            self.create_task_config_row(tarefa)
+
+    def create_task_config_row(self, tarefa: TCB):
+        """Cria uma linha com o espaço para o id, cor, ingresso, duração e prioridade da tarefa"""
+        task_frame = customtkinter.CTkFrame(self.menu_frame, fg_color="transparent")
+        task_frame.pack(pady=20)
+
+        # ID
+        id_label = customtkinter.CTkLabel(
+            task_frame, text="ID:", font=("Arial", 18)
+        )
+        id_label.pack(side="left", padx=5)
+        id_entry = customtkinter.CTkEntry(
+            task_frame, width=100, font=("Arial", 18)
+        )
+        id_entry.insert(0, tarefa["id"])
+        id_entry.pack(side="left", padx=5)
+
+        # Cor
+        color_label = customtkinter.CTkLabel(
+            task_frame, text="Cor:", font=("Arial", 18)
+        )
+        color_label.pack(side="left", padx=5)
+        color_entry = customtkinter.CTkEntry(
+            task_frame, width=100, font=("Arial", 18)
+        )
+        color_entry.insert(0, tarefa["cor"])
+        color_entry.pack(side="left", padx=5)
+
+        # Ingress
+        ingresso_label = customtkinter.CTkLabel(
+            task_frame, text="Ingresso:", font=("Arial", 18)
+        )
+        ingresso_label.pack(side="left", padx=5)
+        ingresso_entry = customtkinter.CTkEntry(
+            task_frame, width=100, font=("Arial", 18)
+        )
+        ingresso_entry.insert(0, str(tarefa["ingresso"]))
+        ingresso_entry.pack(side="left", padx=5)
+
+        # Duração
+        duracao_label = customtkinter.CTkLabel(
+            task_frame, text="Duração:", font=("Arial", 18)
+        )
+        duracao_label.pack(side="left", padx=5)
+        duracao_entry = customtkinter.CTkEntry(
+            task_frame, width=100, font=("Arial", 18) 
+        )
+        duracao_entry.insert(0, str(tarefa["duracao"]))
+        duracao_entry.pack(side="left", padx=5)
+
+        # Prioridade
+        prioridade_label = customtkinter.CTkLabel(
+            task_frame, text="Prioridade:", font=("Arial", 18)
+        )
+        prioridade_label.pack(side="left", padx=5)
+        prioridade_entry = customtkinter.CTkEntry(
+            task_frame, width=100, font=("Arial", 18)
+        )
+        prioridade_entry.insert(0, str(tarefa["prioridade"]))
+        prioridade_entry.pack(side="left", padx=5)
 
     def get_quantum(self):
         """Get current quantum value"""
-        return self.quantum_value
+        return self.quantum
 
     def get_algorithm(self):
         """Get selected algorithm"""

@@ -257,7 +257,8 @@ class App(customtkinter.CTk):
         self.config_frame = customtkinter.CTkFrame(self, fg_color="transparent")
         self.config_frame.pack(fill="both", expand=True)
 
-        self.config_editor = ConfigEditor(self, self.config_frame, self.config_file, self.volta_menu_edicao)
+        self.config_editor = ConfigEditor(self, self.config_frame, 
+                                          self.volta_menu_edicao, self.config_file)
 
 if __name__ == "__main__":
     app = App()

@@ -31,6 +31,7 @@
 # OBSERVAÇÕES
 # A fila (ou heap) de tarefas prontas será gerenciada pelo escalonador.
 
+from config_handler import read_config
 from escalonador import Escalonador
 from tcb import TCB
 
@@ -46,27 +47,10 @@ class SistemaOperacional:
         self.tarefas_finalizadas: list[TCB] = [] # Lista de TCBs finalizadas
         self.chama_escalonador_entrada = False # Flag para chamar o escalonador quando uma nova tarefa entra
 
-        with open(config_file, 'r') as file:
-            lines = file.readlines()
-
-        self.nome_escalonador = lines[0].split(";")[0].strip().lower()
-        self.quantum = int(lines[0].split(";")[1].strip())
-        
-        self.tarefas: list[TCB] = []
-        for line in lines[1:]:
-            parts = line.strip().split(';')
-            duracao_tarefa = int(parts[3])
-            tarefa = TCB(
-                id=parts[0],
-                cor=parts[1],
-                ingresso=int(parts[2]),
-                duracao=duracao_tarefa,
-                prioridade=int(parts[4]),
-                tempo_restante=duracao_tarefa, # Importante para SRTF
-                tempos_de_execucao=[],
-                lista_eventos=[]
-            )
-            self.tarefas.append(tarefa)
+        dados_config = read_config(config_file)
+        self.nome_escalonador = dados_config["nome_escalonador"]
+        self.quantum = dados_config["quantum"]
+        self.tarefas = dados_config["tarefas"]
 
         self.tarefas_no_ingresso = {}
         for tarefa in self.tarefas:
