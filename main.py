@@ -17,6 +17,7 @@ class App(customtkinter.CTk):
         self.sistema_operacional = None
         self.historico_estados = []  # Para guardar os "snapshots" da simulação
         self.config_file = "config_padrao.txt"
+        self.config_selected = False
         self.config_editor = None
         self.config_frame = None
 
@@ -52,8 +53,12 @@ class App(customtkinter.CTk):
         )
         start_button.pack(pady=80)
 
+
+        button_text = "Selecionar Arquivo de Configuração (Atual: Padrão)"
+        if self.config_selected:
+            button_text = f"Selecionado: {self.config_file.split('/')[-1]}"
         self.selected_file_label = customtkinter.CTkButton(
-            self.menu_frame, text="Nenhum arquivo selecionado", 
+            self.menu_frame, text=button_text, 
             font=("Arial", 18), command=self.seleciona_config,
              width=250, height=60
         )
@@ -229,6 +234,7 @@ class App(customtkinter.CTk):
             print(f"Arquivo selecionado: {file_path}")
             self.config_file = file_path  # Save the selected file path
             self.selected_file_label.configure(text=f"Selecionado: {file_path.split('/')[-1]}")  # Show only filename
+            self.config_selected = True
 
     def take_screenshot(self):
         """Tira um screenshot da área do diagrama de Gantt."""
@@ -248,7 +254,9 @@ class App(customtkinter.CTk):
             screenshot.save(filename)
             print(f"Screenshot salvo como {filename}")
 
-    def volta_menu_edicao(self):
+    def volta_menu_edicao(self, config_file: str):
+        self.config_file = config_file
+        self.config_selected = True
         self.config_frame.destroy()
         self.create_menu_frame()
 
@@ -257,8 +265,10 @@ class App(customtkinter.CTk):
         self.config_frame = customtkinter.CTkFrame(self, fg_color="transparent")
         self.config_frame.pack(fill="both", expand=True)
 
-        self.config_editor = ConfigEditor(self, self.config_frame, 
-                                          self.volta_menu_edicao, self.config_file)
+        self.config_editor = ConfigEditor(self, 
+                                          self.config_frame, 
+                                          self.volta_menu_edicao, 
+                                          self.config_file)
 
 if __name__ == "__main__":
     app = App()

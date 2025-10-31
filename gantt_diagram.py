@@ -114,8 +114,8 @@ class GanttDiagram(customtkinter.CTkFrame):
         usable_width = canvas_width - self.margin_left - self.margin_right
         usable_height = canvas_height - self.margin_top - self.margin_bottom
 
-        cell_width = usable_width / self.max_time
-        cell_height = usable_height / self.n_tarefas
+        cell_width = usable_width / max(self.max_time, 1)
+        cell_height = usable_height / max(self.n_tarefas, 1)
 
         bar_margin = 24
 
