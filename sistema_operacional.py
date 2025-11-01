@@ -63,7 +63,7 @@ class SistemaOperacional:
         self.tarefas_finalizadas: list[TCB] = []
 
         # Define quais algoritmos causam preempção na CHEGADA de uma nova tarefa
-        self.preempcao_por_chegada = self.nome_escalonador in ["srtf"]
+        self.preempcao_por_chegada = self.nome_escalonador in ["srtf", "priop", "prioridade"]
         self.preempcao_por_quantum = self.nome_escalonador in ["fifo"]  # Round Robin é uma variação do FIFO
 
     def executar_tick(self):
@@ -73,11 +73,24 @@ class SistemaOperacional:
             for tarefa in novas_tarefas:
                 self.escalonador.adicionar_tarefa_pronta(tarefa)
             
-            # Se o algoritmo é preemptivo por chegada (SRTF), a tarefa atual deve
-            # voltar para a fila para ser reavaliada com as novas que chegaram.
+            # Verifica se alguma nova tarefa deve preemptar a atual (SRTF e Prioridade)
             if self.tarefa_executando and self.preempcao_por_chegada:
-                self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
-                self.tarefa_executando = None
+                deve_preemptar = False
+                
+                if self.nome_escalonador == "srtf":
+                    # SRTF: preempta se há tarefa com menor tempo restante
+                    menor_tempo_fila = min(self.escalonador.fila_tarefas_prontas, key=lambda t: t['tempo_restante'])['tempo_restante']
+                    deve_preemptar = menor_tempo_fila < self.tarefa_executando['tempo_restante']
+                    
+                elif self.nome_escalonador == "priop":
+                    # Prioridade: preempta se há tarefa com maior prioridade
+                    maior_prioridade_fila = max(self.escalonador.fila_tarefas_prontas, key=lambda t: t['prioridade'])['prioridade']
+                    deve_preemptar = maior_prioridade_fila > self.tarefa_executando['prioridade']
+                
+                if deve_preemptar:
+                    # Preempção: coloca tarefa atual de volta na fila
+                    self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
+                    self.tarefa_executando = None
 
         # 2. Se não há tarefa executando, chama o escalonador para escolher a próxima
         if self.tarefa_executando is None:
