@@ -1,16 +1,10 @@
-# ESCALONADOR
-
-# INIT
-# Recebe nome do escalonador desejado e salva
-# Processa string: lowercase, tira whitespaces
-
-# Execuação
-# Usa um dicionário para chamar a função correta de escalonamento
-# Caso contrário, usa FIFO como padrão (e notifica erro)
 from tcb import TCB
 
-
-# Fazer com vetor agora, depois atualizar para usar fila de prioridade (heap)
+# Para adicionar um novo algoritmo de escalonamento:
+# 1. Adicione uma nova função na classe Escalonador seguindo o padrão das existentes.
+# 2. Adicione a função ao dicionário self.algoritmos_disponiveis com a chave sendo o nome do algoritmo em minúsculas.
+# 3. deve_preemptar() deve ser atualizado se o novo algoritmo causar preempção na chegada de novas tarefas.
+# 4. get_preempcao_chegada() e get_preempcao_quantum() devem ser atualizados conforme necessário.
 class Escalonador:
     def __init__(self, nome_escalonador: str):
         self.nome_escalonador = nome_escalonador.strip().lower()
@@ -36,12 +30,26 @@ class Escalonador:
     def adicionar_tarefa_pronta(self, tarefa: TCB):
         self.fila_tarefas_prontas.append(tarefa)
 
+    def deve_preemptar(self, tarefa_atual: TCB) -> bool:
+        """Verifica se a tarefa atual deve ser preemptada por alguma tarefa na fila de prontas."""
+        if not self.fila_tarefas_prontas:
+            return False
+        if self.nome_escalonador == "fifo":
+            return False
+        elif self.nome_escalonador == "srtf":
+            return min(self.fila_tarefas_prontas, key=lambda t: t['tempo_restante'])["tempo_restante"] < tarefa_atual['tempo_restante']
+        elif self.nome_escalonador == "priop":
+            return max(self.fila_tarefas_prontas, key=lambda t: t['prioridade'])["prioridade"] > tarefa_atual['prioridade']
+        return False
+
     def fifo(self):
+        """Algoritmo FIFO (First In, First Out):"""
         if self.fila_tarefas_prontas:
             return self.fila_tarefas_prontas.pop(0)  # Remove do início (índice 0)
         return None
 
-    def srtf(self, tarefa_executando=None):
+    def srtf(self):
+        """Algoritmo SRTF (Shortest Remaining Time First): Escolhe a tarefa com MENOR tempo restante."""
         if not self.fila_tarefas_prontas:
             return None
         
@@ -63,3 +71,9 @@ class Escalonador:
         tarefa_escolhida = max(self.fila_tarefas_prontas, key=lambda t: t['prioridade'])
         self.fila_tarefas_prontas.remove(tarefa_escolhida)
         return tarefa_escolhida
+    
+    def get_preempcao_chegada(self) -> bool:
+        return self.nome_escalonador in ["srtf", "priop"]
+    
+    def get_preempcao_quantum(self) -> bool:
+        return self.nome_escalonador in ["fifo"]

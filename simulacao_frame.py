@@ -122,7 +122,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         if not self.sistema_operacional.simulacao_terminada():
             # Salva o estado ATUAL antes de executar o próximo tick
             try:
-                self.historico_estados.append(copy.deepcopy(self.sistema_operacional)) # Adicionar um método que funcione com o Queue depois
+                self.historico_estados.append(copy.deepcopy(self.sistema_operacional))
             except Exception as e:
                 print(f"Erro ao salvar estado para histórico: {e}")
             finally:

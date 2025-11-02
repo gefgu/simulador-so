@@ -6,6 +6,7 @@ from tkinter import filedialog
 class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
+        # Inicialização da janela principal
         self.geometry("1920x1080")
         self.title("Simulador SO")
 
@@ -59,6 +60,7 @@ class App(customtkinter.CTk):
         self.simulacao_frame.pack(fill="both", expand=True)
 
     def seleciona_config(self):
+        """Abre um diálogo para selecionar um arquivo de configuração."""
         file_path = filedialog.askopenfilename(
             title="Selecione um arquivo de configuração",
             initialdir=".",  # Changed from "/" to current directory
@@ -72,12 +74,14 @@ class App(customtkinter.CTk):
             self.config_selected = True
 
     def reseta_simulacao(self):
+        """Reseta a simulação, destruindo a UI de simulação e retornando ao menu."""
         if self.simulacao_frame:
             self.simulacao_frame.destroy()
             self.simulacao_frame = None
         self.create_menu_frame()
 
     def volta_menu_edicao(self, config_file: str):
+        """Volta ao menu principal após editar a configuração."""
         self.config_file = config_file
         self.config_selected = True
         if self.config_frame:
@@ -86,6 +90,7 @@ class App(customtkinter.CTk):
         self.create_menu_frame()
 
     def cria_menu_edicao(self):
+        """Cria a interface para edição de configuração."""
         if self.menu_frame:
             self.menu_frame.destroy()
             self.menu_frame = None

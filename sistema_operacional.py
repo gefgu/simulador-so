@@ -1,36 +1,4 @@
 # Classe do Sistema Operacional
-
-# INICIALIZAÇÃO DO SISTEMA OPERACIONAL
-
-# Acontece depois do usuário clicar em "Iniciar Simulação"
-# Lê o arquivo de configuração (e prepara as estruturas de dados para a simulação)
-# Inicializa o relógio do sistema em 0
-
-
-# LEITURA DA CONFIGURAÇÃO
-# Define escalonador do sistema
-# Define quantum do sistema
-# Cria as TCBs das tarefas a partir dos dados lidos no arquivo de configuração
-# Para facilitar, armazena as TCBs em um dict {ingresso: [TCBs que começam nesse ingresso]}
-
-
-# FUNÇÕES DO SISTEMA OPERACIONAL
-
-# EXECUTAR UM TICK DE RELÓGIO
-# Adiciona as tarefas ingressadas na fila de prontas
-# Verifica se uma tarefa foi de suspensa para o pronta (IO, Mutex) (se sim, adiciona na fila de prontas) -> PLACEHOLDER por enquanto
-# Se houver uma nova tarefa ou acabar o quantum, manda para o algoritmo de escalonamento selecionado
-# Atualiza o relógio do sistema em +1 
-# Conta a tarefa em execução como tendo sido executada por 1 unidade de tempo
-# Verifica se a tarefa em execução terminou (se sim, remove da fila de prontas)
-
-# RETORNAR TAREFAS INGRESSADAS
-# Retorna a lista de tarefas que já ingressaram no sistema (com base no relógio do sistema)
-
-
-# OBSERVAÇÕES
-# A fila (ou heap) de tarefas prontas será gerenciada pelo escalonador.
-
 from config_handler import read_config
 from escalonador import Escalonador
 from tcb import TCB
@@ -38,6 +6,8 @@ from tcb import TCB
 
 class SistemaOperacional:
     def __init__(self, config_file: str):
+        """Inicializa o sistema operacional lendo a configuração do arquivo e adicionando todas as variáveis necessárias."""
+
         self.relogio = 0 # Inicializa o relógio do sistema
         self.quantum_atual = 0 # Contador do quantum atual
         self.nome_escalonador = "FIFO" # Tipo de escalonador (para ser definido na leitura do arquivo, padrão FIFO)
@@ -53,19 +23,21 @@ class SistemaOperacional:
         self.quantum = dados_config["quantum"]
         self.tarefas = dados_config["tarefas"]
 
+        # Organiza as tarefas por tempo de ingresso para facilitar a adição ao sistema
         self.tarefas_no_ingresso = {}
         for tarefa in self.tarefas:
             if tarefa["ingresso"] not in self.tarefas_no_ingresso:
                 self.tarefas_no_ingresso[tarefa["ingresso"]] = []
             self.tarefas_no_ingresso[tarefa["ingresso"]].append(tarefa)
 
+        # Inicializa o escalonador
         self.escalonador = Escalonador(self.nome_escalonador)
         self.tarefa_executando: TCB | None = None
         self.tarefas_finalizadas: list[TCB] = []
 
         # Define quais algoritmos causam preempção na CHEGADA de uma nova tarefa
-        self.preempcao_por_chegada = self.nome_escalonador in ["srtf", "priop", "prioridade"]
-        self.preempcao_por_quantum = self.nome_escalonador in ["fifo"]  # Round Robin é uma variação do FIFO
+        self.preempcao_por_chegada = self.escalonador.get_preempcao_chegada()
+        self.preempcao_por_quantum = self.escalonador.get_preempcao_quantum()
 
     def executar_tick(self):
         # 1. Adiciona novas tarefas que chegaram neste tick
@@ -76,18 +48,8 @@ class SistemaOperacional:
             
             # Verifica se alguma nova tarefa deve preemptar a atual (SRTF e Prioridade)
             if self.tarefa_executando and self.preempcao_por_chegada:
-                deve_preemptar = False
-                
-                if self.nome_escalonador == "srtf":
-                    # SRTF: preempta se há tarefa com menor tempo restante
-                    menor_tempo_fila = min(self.escalonador.fila_tarefas_prontas, key=lambda t: t['tempo_restante'])['tempo_restante']
-                    deve_preemptar = menor_tempo_fila < self.tarefa_executando['tempo_restante']
-                    
-                elif self.nome_escalonador == "priop":
-                    # Prioridade: preempta se há tarefa com maior prioridade
-                    maior_prioridade_fila = max(self.escalonador.fila_tarefas_prontas, key=lambda t: t['prioridade'])['prioridade']
-                    deve_preemptar = maior_prioridade_fila > self.tarefa_executando['prioridade']
-                
+                deve_preemptar = self.escalonador.deve_preemptar(self.tarefa_executando)
+
                 if deve_preemptar:
                     # Preempção: coloca tarefa atual de volta na fila
                     self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
