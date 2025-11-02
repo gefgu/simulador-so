@@ -46,6 +46,7 @@ class SistemaOperacional:
         self.tarefa_executando: TCB | None = None # Tarefa que está em execução no momento
         self.tarefas_finalizadas: list[TCB] = [] # Lista de TCBs finalizadas
         self.chama_escalonador_entrada = False # Flag para chamar o escalonador quando uma nova tarefa entra
+        self.ultima_tarefa_executada: TCB | None = None # Última tarefa que foi executada (para visualização)
 
         dados_config = read_config(config_file)
         self.nome_escalonador = dados_config["nome_escalonador"]
