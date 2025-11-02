@@ -162,6 +162,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         if self.sistema_operacional.simulacao_terminada():
             self.next_tick_button.configure(state="disabled")
             self.run_to_end_button.configure(state="disabled")
+            self.take_screenshot()  # Tira screenshot automático ao finalizar
         
         self.prev_tick_button.configure(state="normal") # Sempre podemos regredir depois de avançar
 
@@ -226,6 +227,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         self.next_tick_button.configure(state="disabled")
         self.run_to_end_button.configure(state="disabled")
         self.prev_tick_button.configure(state="normal") # Garante que podemos regredir
+        self.take_screenshot()  # Tira screenshot automático ao finalizar
 
     def resetar_simulacao(self):
         """Destrói a UI da simulação e volta para o menu principal."""

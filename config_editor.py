@@ -1,6 +1,7 @@
 import customtkinter
 
 from config_handler import read_config
+from escalonador import Escalonador
 from tcb import TCB
 
 def cria_tarefa_padrao() -> TCB:
@@ -15,6 +16,11 @@ def cria_tarefa_padrao() -> TCB:
         tempos_de_execucao=[],
         lista_eventos=[]
     )
+
+def get_available_algorithms() -> list[str]:
+    """Retorna a lista de algoritmos de escalonamento disponíveis"""
+    escalonador = Escalonador("fifo")  # Instancia com qualquer nome
+    return [algoritmo.upper() for algoritmo in escalonador.algoritmos_disponiveis.keys()]
 
 
 class ConfigEditor(customtkinter.CTkFrame):
@@ -109,7 +115,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         # Algorithm picker
         self.algorithm_picker = customtkinter.CTkOptionMenu(
             algorithm_section, 
-            values=["FIFO", "SRTF"], 
+            values=get_available_algorithms(), 
             font=("Arial", 24),
             width=200,
             height=50
