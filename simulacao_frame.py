@@ -35,7 +35,24 @@ class SimulacaoFrame(customtkinter.CTkFrame):
 
 
     def create_simulation_ui(self, config_file: str):
-        self.sistema_operacional = SistemaOperacional(config_file)
+        try:
+            self.sistema_operacional = SistemaOperacional(config_file)
+        except Exception as e:
+            print(f"Erro ao iniciar simulação: {e}")
+            # Botão: Voltar ao Menu
+            buttons_frame = customtkinter.CTkFrame(self)
+            buttons_frame.pack(side="bottom", fill="x", padx=20, pady=10)
+
+            mensagem_error = customtkinter.CTkLabel(
+                buttons_frame, text=f"Erro ao iniciar simulação: {e}", font=("Arial", 18)
+            )
+            mensagem_error.pack(side="left", padx=10)
+
+            reset_button = customtkinter.CTkButton(
+                buttons_frame, text="Voltar ao Menu", font=("Arial", 18), width=200, height=50, command=self.resetar_simulacao
+            )
+            reset_button.pack(side="left", padx=10)
+            return
         self.historico_estados = []  # Limpa o histórico para uma nova simulação
 
         # --- Construção da Interface de Simulação ---

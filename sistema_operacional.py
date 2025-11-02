@@ -18,7 +18,11 @@ class SistemaOperacional:
         self.chama_escalonador_entrada = False # Flag para chamar o escalonador quando uma nova tarefa entra
         self.ultima_tarefa_executada: TCB | None = None # Última tarefa que foi executada (para visualização)
 
-        dados_config = read_config(config_file)
+        try: 
+            dados_config = read_config(config_file)
+        except Exception as e:
+            raise Exception(f"Erro ao ler o arquivo de configuração: {e}")
+
         self.nome_escalonador = dados_config["nome_escalonador"]
         self.quantum = dados_config["quantum"]
         self.tarefas = dados_config["tarefas"]
@@ -99,3 +103,5 @@ class SistemaOperacional:
     
     def get_tarefa_executando(self) -> TCB | None:
         return self.tarefa_executando
+    
+    
