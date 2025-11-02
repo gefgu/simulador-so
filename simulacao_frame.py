@@ -73,7 +73,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         
         # Scrollable frame para as informações das tarefas
         self.tcb_scrollable = customtkinter.CTkScrollableFrame(
-            self.tcb_panel_frame, label_text="Estado das Tarefas"
+            self.tcb_panel_frame, label_text="Estado das Tarefas", label_font=("Arial", 16)
         )
         self.tcb_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -239,7 +239,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             text=f"🕒 Tick: {so.relogio} | 🔧 {so.nome_escalonador.upper()}\n"
                  f"⚙️ Quantum: {so.quantum} | 🏃 Ativas: {len(fila_prontas)}\n"
                  f"✅ Finalizadas: {len(tarefas_finalizadas)}/{len(todas_tarefas)}",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 16, "bold"),
             justify="left"
         )
         info_label.pack(padx=10, pady=10)
@@ -247,6 +247,27 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         # Separador
         separator = customtkinter.CTkFrame(self.tcb_scrollable, height=2)
         separator.pack(fill="x", padx=5, pady=5)
+
+        # Informações da fila de prontas
+        if fila_prontas:
+            fila_frame = customtkinter.CTkFrame(self.tcb_scrollable)
+            fila_frame.pack(fill="x", padx=5, pady=10)
+            
+            fila_title = customtkinter.CTkLabel(
+                fila_frame,
+                text="🚦 Fila de Prontas:",
+                font=("Arial", 16, "bold")
+            )
+            fila_title.pack(pady=5)
+            
+            fila_text = " → ".join([f"{t['id']}(p{t['prioridade']})" for t in fila_prontas])
+            fila_label = customtkinter.CTkLabel(
+                fila_frame,
+                text=fila_text,
+                font=("Consolas", 16),
+                wraplength=350
+            )
+            fila_label.pack(padx=10, pady=(0, 10))
         
         # Lista todas as tarefas com suas informações
         for tarefa in todas_tarefas:
@@ -267,7 +288,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             task_id_label = customtkinter.CTkLabel(
                 header_frame,
                 text=f"📋 {tarefa['id']} ({estado})",
-                font=("Arial", 14, "bold"),
+                font=("Arial", 18, "bold"),
                 text_color="white"
             )
             task_id_label.pack(side="left")
@@ -290,32 +311,13 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             details_label = customtkinter.CTkLabel(
                 tarefa_frame,
                 text=details_text,
-                font=("Consolas", 10),
+                font=("Consolas", 18),
                 text_color="white",
                 justify="left"
             )
             details_label.pack(padx=10, pady=(0, 10), anchor="w")
         
-        # Informações da fila de prontas
-        if fila_prontas:
-            fila_frame = customtkinter.CTkFrame(self.tcb_scrollable)
-            fila_frame.pack(fill="x", padx=5, pady=10)
-            
-            fila_title = customtkinter.CTkLabel(
-                fila_frame,
-                text="🚦 Fila de Prontas:",
-                font=("Arial", 12, "bold")
-            )
-            fila_title.pack(pady=5)
-            
-            fila_text = " → ".join([f"{t['id']}(p{t['prioridade']})" for t in fila_prontas])
-            fila_label = customtkinter.CTkLabel(
-                fila_frame,
-                text=fila_text,
-                font=("Consolas", 10),
-                wraplength=350
-            )
-            fila_label.pack(padx=10, pady=(0, 10))
+
 
 
     def take_screenshot(self):
