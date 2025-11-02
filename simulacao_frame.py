@@ -29,6 +29,9 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         self.prev_tick_button = None
         self.next_tick_button = None
         self.run_to_end_button = None
+        self.quantum_label = None
+        self.finalizadas_label = None
+        self.ativas_label = None
 
 
     def create_simulation_ui(self, config_file: str):
@@ -43,14 +46,23 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         self.info_frame = customtkinter.CTkFrame(self.simulation_frame, height=60)
         self.info_frame.pack(side="top", fill="x", padx=20, pady=(20, 0))
 
-        self.relogio_label = customtkinter.CTkLabel(self.info_frame, text="Tick: 0", font=("Arial", 18))
+        self.relogio_label = customtkinter.CTkLabel(self.info_frame, text="🕒 Tick: 0", font=("Arial", 18))
         self.relogio_label.pack(side="left", padx=20)
         
-        self.algoritmo_label = customtkinter.CTkLabel(self.info_frame, text=f"Algoritmo: {self.sistema_operacional.nome_escalonador.upper()}", font=("Arial", 18))
+        self.algoritmo_label = customtkinter.CTkLabel(self.info_frame, text=f"🔧 Algoritmo: {self.sistema_operacional.nome_escalonador.upper()}", font=("Arial", 18))
         self.algoritmo_label.pack(side="left", padx=20)
         
         self.tarefa_exec_label = customtkinter.CTkLabel(self.info_frame, text="Executando: Nenhuma", font=("Arial", 18))
         self.tarefa_exec_label.pack(side="left", padx=20)
+
+        self.quantum_label = customtkinter.CTkLabel(self.info_frame, text=f"⚙️ Quantum: {self.sistema_operacional.quantum}", font=("Arial", 18))
+        self.quantum_label.pack(side="left", padx=20)
+
+        self.finalizadas_label = customtkinter.CTkLabel(self.info_frame, text="✅ Finalizadas: Nenhuma", font=("Arial", 18))
+        self.finalizadas_label.pack(side="left", padx=20)
+
+        self.ativas_label = customtkinter.CTkLabel(self.info_frame, text="🏃 Ativas: Nenhuma", font=("Arial", 18))
+        self.ativas_label.pack(side="left", padx=20)
 
         # -- 2. Frame Principal (Centro) - Split entre Gantt e Inspeção de TCBs --
         main_content_frame = customtkinter.CTkFrame(self.simulation_frame, fg_color="transparent")
@@ -156,13 +168,18 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         current_time = so.get_relogio()
         tarefas = so.get_tarefas_ingressadas()
         tarefa_executando = so.get_tarefa_executando()
-        
+        fila_prontas = so.escalonador.fila_tarefas_prontas
+        todas_tarefas = so.tarefas
+
+
         # Atualiza labels de informação
-        self.relogio_label.configure(text=f"Tick: {current_time}")
+        self.relogio_label.configure(text=f"🕒 Tick: {current_time}")
         if tarefa_executando:
             self.tarefa_exec_label.configure(text=f"Executando: {tarefa_executando['id']}")
         else:
             self.tarefa_exec_label.configure(text="Executando: Nenhuma")
+        self.ativas_label.configure(text=f"🏃 Ativas: {len(fila_prontas)}")
+        self.finalizadas_label.configure(text=f"✅ Finalizadas: {len(so.tarefas_finalizadas)}/{len(todas_tarefas)}")
 
         # Recria o diagrama de Gantt no frame correto
         if self.gantt_diagram:
@@ -229,21 +246,6 @@ class SimulacaoFrame(customtkinter.CTkFrame):
                 return "INGRESSANDO", "#9C27B0"   # Roxo
             else:
                 return "AGUARDANDO", "#757575"  # Cinza
-        
-        # Informações gerais do sistema
-        info_frame = customtkinter.CTkFrame(self.tcb_scrollable)
-        info_frame.pack(fill="x", padx=5, pady=5)
-        
-        info_label = customtkinter.CTkLabel(
-            info_frame, 
-            text=f"🕒 Tick: {so.relogio} | 🔧 {so.nome_escalonador.upper()}\n"
-                 f"⚙️ Quantum: {so.quantum} | 🏃 Ativas: {len(fila_prontas)}\n"
-                 f"✅ Finalizadas: {len(tarefas_finalizadas)}/{len(todas_tarefas)}",
-            font=("Arial", 16, "bold"),
-            justify="left"
-        )
-        info_label.pack(padx=10, pady=10)
-        
         # Separador
         separator = customtkinter.CTkFrame(self.tcb_scrollable, height=2)
         separator.pack(fill="x", padx=5, pady=5)
@@ -264,7 +266,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             fila_label = customtkinter.CTkLabel(
                 fila_frame,
                 text=fila_text,
-                font=("Consolas", 16),
+                font=("Consolas", 14),
                 wraplength=350
             )
             fila_label.pack(padx=10, pady=(0, 10))
@@ -288,14 +290,14 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             task_id_label = customtkinter.CTkLabel(
                 header_frame,
                 text=f"📋 {tarefa['id']} ({estado})",
-                font=("Arial", 18, "bold"),
+                font=("Arial", 16, "bold"),
                 text_color="white"
             )
             task_id_label.pack(side="left")
             
             # Detalhes da tarefa
             details_text = f"⏰ Ingresso: {tarefa['ingresso']}\n"
-            details_text += f"⏱️ Duração: {tarefa['duracao']}\n"
+            # details_text += f"⏱️ Duração: {tarefa['duracao']}\n"
             details_text += f"⭐ Prioridade: {tarefa['prioridade']}\n"
             
             if 'tempo_restante' in tarefa and so.nome_escalonador == 'srtf':
@@ -306,12 +308,12 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             
             if tarefa['tempos_de_execucao']:
                 recent_ticks = tarefa['tempos_de_execucao'][-3:]  # Últimos 3 ticks
-                details_text += f"🔄 Últimos ticks: {recent_ticks}"
+                details_text += f"🔄 Ticks em execução: {recent_ticks}"
             
             details_label = customtkinter.CTkLabel(
                 tarefa_frame,
                 text=details_text,
-                font=("Consolas", 18),
+                font=("Consolas", 16),
                 text_color="white",
                 justify="left"
             )
