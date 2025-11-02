@@ -8,7 +8,7 @@ import subprocess
 from datetime import datetime
 from PIL import ImageGrab, Image  # type: ignore
 import copy  # Importante para salvar o histórico de estados
-from image_helper import convert_ps_to_png, convert_ps_to_png_pillow, convert_ps_to_png_pillow_with_white_bg, convert_ps_to_png_with_white_bg
+from image_helper import convert_ps_to_png_pillow_with_white_bg, convert_ps_to_png_with_white_bg
 
 class SimulacaoFrame(customtkinter.CTkFrame):
     def __init__(self, master, voltar_ao_menu_callback):

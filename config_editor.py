@@ -20,7 +20,7 @@ def cria_tarefa_padrao() -> TCB:
 class ConfigEditor(customtkinter.CTkFrame):
     def __init__(self, master, frame, voltar_callback, config_file: str):
         super().__init__(master)
-
+        # Inicializa os elementos da interface
         self.algorithm_picker = None
         self.quantum_entry = None
         self.main_frame = frame
@@ -29,11 +29,12 @@ class ConfigEditor(customtkinter.CTkFrame):
         self.original_config_file = config_file
         self.tasks_entries = []
 
-
+        # Carrega a configuração inicial
         self.quantum = 2
         self.nome_escalonador = "FIFO"
         self.tarefas: list[TCB] = [cria_tarefa_padrao()]
 
+        # Lê o arquivo de configuração
         dados_config = read_config(config_file)
         if dados_config:
             self.quantum = dados_config["quantum"]
@@ -47,8 +48,6 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         self.menu_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-
-
         self.cria_menu_edicao()
 
     def cria_menu_edicao(self):
@@ -57,7 +56,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         for widget in self.menu_frame.winfo_children():
             widget.destroy()
 
-
+        # Título
         title_label = customtkinter.CTkLabel(
             self.menu_frame, text="Configurações", font=("Arial", 48, "bold")
         )
@@ -68,6 +67,7 @@ class ConfigEditor(customtkinter.CTkFrame):
 
         self.create_task_list()
 
+        # Botões de ação
         buttons_frame = customtkinter.CTkFrame(self.menu_frame, fg_color="transparent")
         buttons_frame.pack(pady=40)
 
@@ -77,12 +77,14 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         add_button.pack(side="left", padx=10)
 
+        # Botão de voltar
         voltar_button = customtkinter.CTkButton(
             buttons_frame, text="Voltar", font=("Arial", 24),
             width=200, height=60, command=self.voltar_sem_salvar
         )
         voltar_button.pack(side="left", padx=10)
 
+        # Botão de salvar
         salvar_button = customtkinter.CTkButton(
             buttons_frame, text="Salvar", font=("Arial", 24),
             width=200, height=60, command=self.voltar_e_salvar
@@ -104,6 +106,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         algorithm_label.pack(pady=(0, 10))
 
+        # Algorithm picker
         self.algorithm_picker = customtkinter.CTkOptionMenu(
             algorithm_section, 
             values=["FIFO", "SRTF"], 

@@ -2,13 +2,16 @@ from tcb import TCB
 
 
 def read_config(config_file):
-
+    # Lê o arquivo de configuração e retorna um dicionário com os dados
     with open(config_file, 'r') as file:
         lines = file.readlines()
 
+    # Processa a primeira linha para obter o nome do escalonador e o quantum
     nome_escalonador = lines[0].split(";")[0].strip().lower()
     quantum = int(lines[0].split(";")[1].strip())
 
+
+    # Processa as linhas seguintes para obter as tarefas
     tarefas: list[TCB] = []
     for line in lines[1:]:
         parts = line.strip().split(';')

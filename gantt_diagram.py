@@ -2,16 +2,6 @@ import customtkinter
 
 
 class GanttDiagram(customtkinter.CTkFrame):
-    """ 
-    Tarefas são do formato:
-        - "id"
-        - cor (string em hexadecimal)
-        - ingresso
-        - duracao
-        - prioridade
-        - Adicionar uma lista com os momentos em que a tarefa executou.
-    """
-
     def __init__(self, master, current_time, tarefas):
         super().__init__(master)
 
@@ -27,17 +17,13 @@ class GanttDiagram(customtkinter.CTkFrame):
 
         # O tempo máximo deve ser usado para definir a escala do diagrama, e atualizado conforme necessário
         self.max_time = current_time 
-        # + 1  # Adiciona uma margem extra
 
-        self.create_gantt_chart()
-        
-        # Bind resize event
-        self.canvas.bind("<Configure>", self._on_canvas_resize)
-        self.after_idle(self.draw_grid)
-
-    def create_gantt_chart(self):
         self.canvas = customtkinter.CTkCanvas(self, bg="white", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
+        
+        # Redesenha a grade quando a janela for redimensionada
+        self.canvas.bind("<Configure>", self._on_canvas_resize)
+        self.after_idle(self.draw_grid)
 
     def _on_canvas_resize(self, event):
         # Redraw when canvas is resized
@@ -47,17 +33,19 @@ class GanttDiagram(customtkinter.CTkFrame):
         # Limpa o canvas antes de desenhar a grade
         self.canvas.delete("all")
 
-        # Get actual canvas dimensions
+        # Calcula dimensões do canvas
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
-        
-        # Don't draw if canvas hasn't been laid out yet
+
+        # Não desenha se o canvas ainda não foi desenhado
         if canvas_width <= 1 or canvas_height <= 1:
             return
 
+        # Calcula o tamanho útil do canvas
         usable_width = canvas_width - self.margin_left - self.margin_right
         usable_height = canvas_height - self.margin_top - self.margin_bottom
 
+        # Calcula o tamanho de cada célula
         cell_width = usable_width / max(self.max_time, 1)
         cell_height = usable_height / max(self.n_tarefas, 1)
 
@@ -107,13 +95,15 @@ class GanttDiagram(customtkinter.CTkFrame):
 
         tempo_atual = self.max_time - 1
 
-        # Get actual canvas dimensions
+        # Obtém as dimensões reais do canvas
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
 
+        # Calcula o tamanho útil do canvas
         usable_width = canvas_width - self.margin_left - self.margin_right
         usable_height = canvas_height - self.margin_top - self.margin_bottom
 
+        # Calcula o tamanho de cada célula
         cell_width = usable_width / max(self.max_time, 1)
         cell_height = usable_height / max(self.n_tarefas, 1)
 
