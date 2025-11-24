@@ -280,8 +280,15 @@ class SimulacaoFrame(customtkinter.CTkFrame):
                 font=("Arial", 16, "bold")
             )
             fila_title.pack(pady=5)
+            # Mostra prioridade dinâmica se for PRIOPENV
+            if so.nome_escalonador.lower() == "priopenv":
+                fila_text = " → ".join([
+                    f"{t['id']}(p{t['prioridade']}→{t.get('prioridade_dinamica', t['prioridade'])})"
+                    for t in fila_prontas
+                ])
+            else:
+                fila_text = " → ".join([f"{t['id']}(p{t['prioridade']})" for t in fila_prontas])
             
-            fila_text = " → ".join([f"{t['id']}(p{t['prioridade']})" for t in fila_prontas])
             fila_label = customtkinter.CTkLabel(
                 fila_frame,
                 text=fila_text,
@@ -321,6 +328,8 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             
             if 'tempo_restante' in tarefa and so.nome_escalonador == 'srtf':
                 details_text += f"⏳ Restante: {tarefa['tempo_restante']}\n"
+            if so.nome_escalonador == "priopenv":
+                details_text += f"⚡ Prioridade Dinâmica: {tarefa.get('prioridade_dinamica', tarefa['prioridade'])}\n"
             
             executed_ticks = len(tarefa['tempos_de_execucao'])
             details_text += f"✔️ Executado: {executed_ticks}/{tarefa['duracao']} ticks\n"
