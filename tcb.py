@@ -16,6 +16,7 @@ class Evento(TypedDict):
     tipo: str
     inicio: int
     duracao: int
+    tempo_restante: int
 
 class TCB(TypedDict):
     id: str

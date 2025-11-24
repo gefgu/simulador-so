@@ -296,6 +296,39 @@ class SimulacaoFrame(customtkinter.CTkFrame):
                 wraplength=350
             )
             fila_label.pack(padx=10, pady=(0, 10))
+
+        fila_io = self.sistema_operacional.fila_IO
+        if fila_io:
+            io_frame = customtkinter.CTkFrame(self.tcb_scrollable)
+            io_frame.pack(fill="x", padx=5, pady=10)
+            
+            io_title = customtkinter.CTkLabel(
+                io_frame,
+                text="🖥️ Fila de I/O:",
+                font=("Arial", 16, "bold")
+            )
+            io_title.pack(pady=5)
+            
+            # Fixed: Access events inside each task
+            io_text_parts = []
+            for t in fila_io:
+                # Get the current I/O event for this task
+                for evento in t['lista_eventos']:
+                    if evento['tipo'] == 'IO' and evento['tempo_restante'] > 0:
+                        io_text_parts.append(
+                            f"{t['id']}(IO:{evento['inicio']}-{evento['duracao']}, restante:{evento['tempo_restante']})"
+                        )
+                        break  # Only show first active IO event
+            
+            io_text = " → ".join(io_text_parts) if io_text_parts else "Vazia"
+            
+            io_label = customtkinter.CTkLabel(
+                io_frame,
+                text=io_text,
+                font=("Consolas", 14),
+                wraplength=350
+            )
+            io_label.pack(padx=10, pady=(0, 10))
         
         # Lista todas as tarefas com suas informações
         for tarefa in todas_tarefas:
