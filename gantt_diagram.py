@@ -49,6 +49,12 @@ class GanttDiagram(customtkinter.CTkFrame):
         cell_width = usable_width / max(self.max_time, 1)
         cell_height = usable_height / max(self.n_tarefas, 1)
 
+        # Ajusta o tamanho da fonte com base na largura das células
+        font_size = max(8, min(32, int(cell_width * 0.5)))  # Entre 12 e 32
+        
+        # Ajusta a distância dos números com base no tamanho da fonte
+        text_offset = 20 + (font_size / 4)
+
         # Desenha linhas horizontais
         for i in range(self.n_tarefas + 1):
             y = self.margin_top + i * cell_height
@@ -65,16 +71,17 @@ class GanttDiagram(customtkinter.CTkFrame):
                 self.canvas.create_line(x, self.margin_top, x, canvas_height - self.margin_bottom, fill="gray", dash=(5, 3))
 
             # Desenha a linha preta dos ticks dos números
+            tick_height = min(16, cell_width / 3)  # Ajusta altura do tick
             self.canvas.create_line(x, canvas_height - self.margin_bottom, x, 
-                                    canvas_height - self.margin_bottom + 16, fill="black", width=2)
+                                    canvas_height - self.margin_bottom + tick_height, fill="black", width=2)
 
-            # Adiciona o número abaixo de cada coluna
+            # Adiciona o número abaixo de cada coluna com fonte ajustável
             self.canvas.create_text(
                 x, 
-                canvas_height - self.margin_bottom + 40, 
+                canvas_height - self.margin_bottom + text_offset, 
                 text=str(j), 
                 fill="black", 
-                font=("Arial", 32)
+                font=("Arial", font_size)
             )
 
         self.draw_tarefas(self.tarefas)

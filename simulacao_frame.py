@@ -259,8 +259,10 @@ class SimulacaoFrame(customtkinter.CTkFrame):
                 return "FINALIZADA", "#4CAF50"  # Verde
             elif tarefa == tarefa_executando:
                 return "EXECUTANDO", "#2196F3"  # Azul
+            elif tarefa in fila_io:
+                return "AGUARDANDO I/O", "#FF6F00"  # Laranja escuro
             elif tarefa in fila_prontas:
-                return "PRONTA", "#FF9800"      # Laranja
+                return "PRONTA", "#FF9800"      # Laranja claro
             elif tarefa['ingresso'] <= so.relogio:
                 return "INGRESSANDO", "#9C27B0"   # Roxo
             else:
@@ -384,41 +386,47 @@ class SimulacaoFrame(customtkinter.CTkFrame):
 
 
     def take_screenshot(self):
-        """Salva o diagrama de Gantt como PNG de forma universal (Windows/Linux/macOS)."""
-        if not self.gantt_diagram or not self.gantt_diagram.canvas:
-            print("❌ Erro: Nenhum diagrama de Gantt disponível para capturar.")
+        """Salva a tela inteira da simulação como PNG."""
+        if not self.simulation_frame:
+            print("❌ Erro: Nenhuma simulação disponível para capturar.")
             return
-            
+        
+        # Gera nome do arquivo com informações da simulação
+        so = self.sistema_operacional
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        final_filename = f"gantt_diagram_{timestamp}.png"
+        filename = (f"sim_{so.nome_escalonador}_"
+                    f"q{so.quantum}_"
+                    f"a{so.alpha}_"
+                    f"t{so.relogio}_"
+                    f"{timestamp}.png")
+        
         sistema = platform.system().lower()
         
         print(f"🖥️ Sistema detectado: {platform.system()}")
-        print(f"📸 Salvando como: {final_filename}")
+        print(f"📸 Salvando como: {filename}")
         
-        # Força fundo branco no canvas
+        # Força fundo branco
         try:
-            original_bg = self.gantt_diagram.canvas.cget("bg")
-            self.gantt_diagram.canvas.configure(bg="white")
-            self.gantt_diagram.canvas.update()
-            print("🎨 Fundo do canvas configurado para branco")
+            self.simulation_frame.configure(fg_color="white")
+            self.simulation_frame.update()
+            print("🎨 Fundo configurado para branco")
         except Exception as e:
             print(f"⚠️ Erro ao configurar fundo branco: {e}")
         
-        # === MÉTODO 1: PIL ImageGrab (Windows/macOS prioritário) ===
-        if sistema in ['windows', 'darwin']:  # Windows ou macOS
+        # === MÉTODO 1: PIL ImageGrab (Windows/macOS) ===
+        if sistema in ['windows', 'darwin']:
             try:
-                
                 print("🔄 Tentando captura direta com PIL...")
                 
-                x = self.gantt_diagram.canvas.winfo_rootx()
-                y = self.gantt_diagram.canvas.winfo_rooty()
-                width = self.gantt_diagram.canvas.winfo_width()
-                height = self.gantt_diagram.canvas.winfo_height()
+                # Captura o frame inteiro da simulação
+                x = self.simulation_frame.winfo_rootx()
+                y = self.simulation_frame.winfo_rooty()
+                width = self.simulation_frame.winfo_width()
+                height = self.simulation_frame.winfo_height()
                 
                 screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
                 
-                # Garante fundo branco na imagem
+                # Garante fundo branco
                 if screenshot.mode == 'RGBA':
                     background = Image.new('RGB', screenshot.size, (255, 255, 255))
                     background.paste(screenshot, mask=screenshot.split()[-1])
@@ -426,60 +434,56 @@ class SimulacaoFrame(customtkinter.CTkFrame):
                 elif screenshot.mode != 'RGB':
                     screenshot = screenshot.convert('RGB')
                 
-                screenshot.save(final_filename)
-                print(f"✅ Imagem salva com fundo branco: {final_filename}")
+                screenshot.save(filename)
+                print(f"✅ Imagem salva: {filename}")
                 return
                 
             except Exception as e:
                 print(f"⚠️ PIL falhou: {e}")
                 print("🔄 Tentando método alternativo...")
         
-        # === MÉTODO 2: Linux ou fallback - PostScript + conversão ===
-        try:
-            print("🔄 Gerando PostScript temporário...")
-            temp_ps = f"temp_{timestamp}.eps"
-            
-            # Gera PostScript
-            self.gantt_diagram.canvas.postscript(file=temp_ps)
-            print(f"✅ PostScript gerado: {temp_ps}")
-            
-            # Tenta conversão com fundo branco usando ImageMagick
-            if convert_ps_to_png_with_white_bg(temp_ps, final_filename):
-                # Remove arquivo temporário
-                try:
-                    os.remove(temp_ps)
-                    print(f"🗑️ Arquivo temporário removido: {temp_ps}")
-                except:
-                    pass
-                return
-            
-            # Se ImageMagick falhou, tenta Pillow com fundo branco
-            if convert_ps_to_png_pillow_with_white_bg(temp_ps, final_filename):
-                try:
-                    os.remove(temp_ps)
-                except:
-                    pass
-                return
+        # === MÉTODO 2: PostScript (Linux/fallback) ===
+        if self.gantt_diagram and self.gantt_diagram.canvas:
+            try:
+                print("🔄 Gerando PostScript do diagrama...")
+                temp_ps = f"temp_{timestamp}.eps"
                 
-            print(f"⚠️ Conversão com fundo branco falhou. Arquivo PostScript mantido: {temp_ps}")
-            print(f"💡 Para converter manualmente: convert -background white -flatten {temp_ps} {final_filename}")
-            
-        except Exception as e:
-            print(f"❌ Método PostScript falhou: {e}")
+                self.gantt_diagram.canvas.postscript(file=temp_ps)
+                print(f"✅ PostScript gerado: {temp_ps}")
+                
+                # Tenta conversão com ImageMagick
+                if convert_ps_to_png_with_white_bg(temp_ps, filename):
+                    try:
+                        os.remove(temp_ps)
+                    except:
+                        pass
+                    return
+                
+                # Tenta conversão com Pillow
+                if convert_ps_to_png_pillow_with_white_bg(temp_ps, filename):
+                    try:
+                        os.remove(temp_ps)
+                    except:
+                        pass
+                    return
+                    
+                print(f"⚠️ Conversão falhou. PostScript mantido: {temp_ps}")
+                
+            except Exception as e:
+                print(f"❌ Método PostScript falhou: {e}")
         
         # === MÉTODO 3: SVG como último recurso ===
         try:
             print("🔄 Gerando SVG como alternativa...")
-            svg_filename = f"gantt_diagram_{timestamp}.svg"
+            svg_filename = filename.replace('.png', '.svg')
             self.export_gantt_as_svg(svg_filename)
             print(f"✅ Diagrama exportado como SVG: {svg_filename}")
-            print(f"💡 Para converter para PNG: convert -background white {svg_filename} {final_filename}")
             return
             
         except Exception as e:
             print(f"❌ Exportação SVG falhou: {e}")
-            
-        print("❌ Todos os métodos falharam. Verifique permissões e dependências.")
+        
+        print("❌ Todos os métodos falharam.")
  
     def export_gantt_as_svg(self, filename):
         """Exporta o diagrama de Gantt como arquivo SVG."""

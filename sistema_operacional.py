@@ -51,7 +51,6 @@ class SistemaOperacional:
     def executar_tick(self):
         if self.fila_IO:
             # Verifica se alguma tarefa na fila de I/O terminou seu evento
-            # Suponho que só uma tarefa pode atuar por tick
             tarefas_IO_concluidas = []
             for tarefa_io in self.fila_IO:
                 for evento in tarefa_io["lista_eventos"]:
@@ -60,6 +59,8 @@ class SistemaOperacional:
                         if tempo_restante <= 0:
                             tarefas_IO_concluidas.append(tarefa_io)
                             break
+                        break  # Só processa um evento por tick
+                break  # Só processa uma tarefa de I/O por tick
             
             for tarefa_concluida in tarefas_IO_concluidas:
                 self.fila_IO.remove(tarefa_concluida)
