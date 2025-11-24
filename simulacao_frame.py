@@ -413,34 +413,35 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         except Exception as e:
             print(f"⚠️ Erro ao configurar fundo branco: {e}")
         
-        # === MÉTODO 1: PIL ImageGrab (Windows/macOS) ===
-        if sistema in ['windows', 'darwin']:
-            try:
-                print("🔄 Tentando captura direta com PIL...")
-                
-                # Captura o frame inteiro da simulação
-                x = self.simulation_frame.winfo_rootx()
-                y = self.simulation_frame.winfo_rooty()
-                width = self.simulation_frame.winfo_width()
-                height = self.simulation_frame.winfo_height()
-                
-                screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
-                
-                # Garante fundo branco
-                if screenshot.mode == 'RGBA':
-                    background = Image.new('RGB', screenshot.size, (255, 255, 255))
-                    background.paste(screenshot, mask=screenshot.split()[-1])
-                    screenshot = background
-                elif screenshot.mode != 'RGB':
-                    screenshot = screenshot.convert('RGB')
-                
-                screenshot.save(filename)
-                print(f"✅ Imagem salva: {filename}")
-                return
-                
-            except Exception as e:
-                print(f"⚠️ PIL falhou: {e}")
-                print("🔄 Tentando método alternativo...")
+        # === MÉTODO 1: PIL ImageGrab (Windows/macOS/Linux com Pillow 9.1+) ===
+        try:
+            print("🔄 Tentando captura direta com PIL...")
+            
+            # Captura o SimulacaoFrame inteiro (self, não self.simulation_frame)
+            x = self.winfo_rootx()
+            y = self.winfo_rooty()
+            width = self.winfo_width()
+            height = self.winfo_height()
+            
+            print(f"📐 Coordenadas: x={x}, y={y}, width={width}, height={height}")
+            
+            screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
+            
+            # Garante fundo branco
+            if screenshot.mode == 'RGBA':
+                background = Image.new('RGB', screenshot.size, (255, 255, 255))
+                background.paste(screenshot, mask=screenshot.split()[-1])
+                screenshot = background
+            elif screenshot.mode != 'RGB':
+                screenshot = screenshot.convert('RGB')
+            
+            screenshot.save(filename)
+            print(f"✅ Imagem salva: {filename}")
+            return
+            
+        except Exception as e:
+            print(f"⚠️ PIL falhou: {e}")
+            print("🔄 Tentando método alternativo...")
         
         # === MÉTODO 2: PostScript (Linux/fallback) ===
         if self.gantt_diagram and self.gantt_diagram.canvas:
