@@ -9,6 +9,10 @@ def read_config(config_file):
     # Processa a primeira linha para obter o nome do escalonador e o quantum
     nome_escalonador = lines[0].split(";")[0].strip().lower()
     quantum = int(lines[0].split(";")[1].strip())
+    try:
+        alpha = int(lines[0].split(";")[2].strip())
+    except IndexError:
+        alpha = 1
 
 
     # Processa as linhas seguintes para obter as tarefas
@@ -24,7 +28,7 @@ def read_config(config_file):
             prioridade=int(parts[4]),
             tempo_restante=duracao_tarefa, # Importante para SRTF
             tempos_de_execucao=[],
-            lista_eventos=[]
+            lista_eventos=[],
         )
         tarefas.append(tarefa)
     
@@ -32,5 +36,6 @@ def read_config(config_file):
     return {
         "nome_escalonador": nome_escalonador,
         "quantum": quantum,
+        "alpha": alpha,
         "tarefas": tarefas
     }

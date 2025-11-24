@@ -17,15 +17,19 @@ class SistemaOperacional:
         self.tarefas_finalizadas: list[TCB] = [] # Lista de TCBs finalizadas
         self.chama_escalonador_entrada = False # Flag para chamar o escalonador quando uma nova tarefa entra
         self.ultima_tarefa_executada: TCB | None = None # Última tarefa que foi executada (para visualização)
+        self.alpha = 1  # Fator de envelhecimento (para algoritmos que o utilizam)
 
         try: 
             dados_config = read_config(config_file)
         except Exception as e:
             raise Exception(f"Erro ao ler o arquivo de configuração: {e}")
 
+
+        # print(dados_config)
         self.nome_escalonador = dados_config["nome_escalonador"]
         self.quantum = dados_config["quantum"]
         self.tarefas = dados_config["tarefas"]
+        self.alpha = dados_config["alpha"]
 
         # Organiza as tarefas por tempo de ingresso para facilitar a adição ao sistema
         self.tarefas_no_ingresso = {}
@@ -35,7 +39,7 @@ class SistemaOperacional:
             self.tarefas_no_ingresso[tarefa["ingresso"]].append(tarefa)
 
         # Inicializa o escalonador
-        self.escalonador = Escalonador(self.nome_escalonador)
+        self.escalonador = Escalonador(self.nome_escalonador, alpha=self.alpha)
         self.tarefa_executando: TCB | None = None
         self.tarefas_finalizadas: list[TCB] = []
 
