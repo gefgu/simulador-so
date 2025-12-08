@@ -47,6 +47,9 @@ class SistemaOperacional:
         # Estrutura para gerenciar Mutexes
         # Formato: {mutex_id: {"dono": TCB | None, "fila_espera": list[TCB]}}
         self.mutexes: dict[int, dict] = {}
+        
+        # Rastreia tarefas bloqueadas por mutex para aplicar envelhecimento
+        self.tarefas_bloqueadas_mutex: list[TCB] = []
 
         # Rastreia em quais ticks houve sorteio para desempate
         self.ticks_com_sorteio: set[int] = set()
@@ -80,6 +83,7 @@ class SistemaOperacional:
         else:
             # Mutex está ocupado, bloqueia a tarefa
             mutex["fila_espera"].append(tarefa)
+            self.tarefas_bloqueadas_mutex.append(tarefa)
             print(f"Tarefa {tarefa['id']} bloqueada aguardando mutex {mutex_id} (dono: {mutex['dono']['id']})")
             return False
 
@@ -104,7 +108,10 @@ class SistemaOperacional:
             proxima_tarefa = mutex["fila_espera"].pop(0)
             mutex["dono"] = proxima_tarefa
             print(f"Tarefa {proxima_tarefa['id']} acordada e adquiriu mutex {mutex_id}")
-            # Coloca a tarefa de volta na fila de prontas
+            
+            # Remove da lista de bloqueadas e coloca na fila de prontas
+            if proxima_tarefa in self.tarefas_bloqueadas_mutex:
+                self.tarefas_bloqueadas_mutex.remove(proxima_tarefa)
             self.escalonador.adicionar_tarefa_pronta(proxima_tarefa)
         else:
             # Ninguém esperando, libera o mutex
@@ -134,8 +141,22 @@ class SistemaOperacional:
         
         return tarefa_bloqueada
 
+    def _liberar_todos_mutexes_tarefa(self, tarefa: TCB):
+        """
+        Libera todos os mutexes que a tarefa possui quando ela termina.
+        """
+        mutexes_a_liberar = []
+        for mutex_id, mutex in self.mutexes.items():
+            if mutex["dono"] and mutex["dono"]["id"] == tarefa["id"]:
+                mutexes_a_liberar.append(mutex_id)
+        
+        for mutex_id in mutexes_a_liberar:
+            print(f"Liberando mutex {mutex_id} da tarefa {tarefa['id']} que terminou")
+            self._liberar_mutex(tarefa, mutex_id)
+
     def _escalonar(self):
         """Chama o escalonador para escolher a próxima tarefa a executar."""
+        # Atualiza tarefa_atual ANTES de escalonar
         self.escalonador.set_tarefa_atual(self.tarefa_executando)
         self.tarefa_executando = self.escalonador.escalonar()
         self.quantum_atual = 0
@@ -179,6 +200,8 @@ class SistemaOperacional:
                 deve_preemptar = self.escalonador.deve_preemptar(self.tarefa_executando)
                 if deve_preemptar:
                     self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
+                    # Atualiza tarefa_atual antes de limpar tarefa_executando
+                    self.escalonador.set_tarefa_atual(self.tarefa_executando)
                     self.tarefa_executando = None
                     self._escalonar()  # Chama escalonador após preempção
 
@@ -186,39 +209,41 @@ class SistemaOperacional:
         if self.tarefa_executando is None:
             self._escalonar()
 
-        # 3. Se ainda assim não houver tarefa (fila vazia), apenas avança o relógio
+        # 3.5. Se ainda assim não houver tarefa (fila vazia), apenas avança o relógio
         if self.tarefa_executando is None:
             self.relogio += 1
             return
+
+        # Calcula o tempo de execução ANTES de executar
+        tempo_execucao_tarefa = len(self.tarefa_executando["tempos_de_execucao"]) + 1
+        
+        # Processa eventos de mutex ANTES de executar o tick
+        if self.tarefa_executando["lista_eventos"]:
+            tarefa_bloqueada_mutex = self._processar_eventos_mutex(self.tarefa_executando, tempo_execucao_tarefa)
+            
+            if tarefa_bloqueada_mutex:
+                # Tarefa foi bloqueada aguardando mutex ANTES de executar
+                self.escalonador.set_tarefa_atual(self.tarefa_executando)
+                self.tarefa_executando = None
+                self.quantum_atual = 0
+                self._escalonar()  # Chama escalonador após bloqueio por mutex
+                self.relogio += 1
+                return
 
         # 4. Executa a tarefa atual por um tick
         self.tarefa_executando["tempos_de_execucao"].append(self.relogio)
         if "tempo_restante" in self.tarefa_executando: # Para SRTF
             self.tarefa_executando["tempo_restante"] -= 1
         
-        # Calcula o tempo de execução relativo da tarefa (para eventos)
-        tempo_execucao_tarefa = len(self.tarefa_executando["tempos_de_execucao"])
-        
-        # 5.1 Processa eventos de mutex (ML e MU)
-        if self.tarefa_executando["lista_eventos"]:
-            tarefa_bloqueada_mutex = self._processar_eventos_mutex(self.tarefa_executando, tempo_execucao_tarefa)
-            
-            if tarefa_bloqueada_mutex:
-                # Tarefa foi bloqueada aguardando mutex
-                self.tarefa_executando = None
-                self.quantum_atual = 0
-                self._escalonar()  # Chama escalonador após bloqueio por mutex
-                self.relogio += 1
-                return
-        
-        # 5.2 Processa eventos de I/O
+        # Processa eventos de I/O com tempo absoluto
         if self.tarefa_executando["lista_eventos"]:
             for evento in self.tarefa_executando["lista_eventos"]:
                 if evento["tipo"] == "IO":
-                    inicio_evento = evento["inicio"]
-                    if tempo_execucao_tarefa == inicio_evento:
+                    # Usa tempo_execucao_tarefa já calculado
+                    if tempo_execucao_tarefa == evento["inicio"]:
                         self.tarefa_executando["evento_io_ativo"] = evento
                         self.fila_IO.append(self.tarefa_executando)
+                        self.escalonador.set_tarefa_atual(self.tarefa_executando)
                         self.tarefa_executando = None
                         self.quantum_atual = 0
                         self._escalonar()  # Chama escalonador após I/O
@@ -231,19 +256,26 @@ class SistemaOperacional:
         duracao_executada = len(self.tarefa_executando["tempos_de_execucao"])
         if duracao_executada >= self.tarefa_executando["duracao"]:
             print(f"Tarefa {self.tarefa_executando['id']} terminou.")
+            # Libera todos os mutexes antes de finalizar
+            self._liberar_todos_mutexes_tarefa(self.tarefa_executando)
             self.tarefas_finalizadas.append(self.tarefa_executando)
+            self.escalonador.set_tarefa_atual(self.tarefa_executando)
             self.tarefa_executando = None
             self._escalonar()  # Chama escalonador após término
         
         # 7. Se não terminou, verifica se o quantum estourou
         elif self.quantum_atual >= self.quantum and self.preempcao_por_quantum:
             self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
+            self.escalonador.set_tarefa_atual(self.tarefa_executando)
             self.tarefa_executando = None
             self.quantum_atual = 0
             self._escalonar()  # Chama escalonador após quantum
 
-        # 8. Aplica envelhecimento a todas as tarefas na fila de prontas
+        # Aplica envelhecimento a tarefas prontas E bloqueadas por mutex
         self.escalonador.aplicar_envelhecimento()
+        if self.nome_escalonador == "priopenv":
+            for tarefa in self.tarefas_bloqueadas_mutex:
+                tarefa['prioridade_dinamica'] += self.alpha
 
         # 9. Avança o relógio do sistema
         self.relogio += 1
@@ -259,5 +291,4 @@ class SistemaOperacional:
     
     def get_tarefa_executando(self) -> TCB | None:
         return self.tarefa_executando
-    
-    
+
