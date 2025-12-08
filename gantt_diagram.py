@@ -2,7 +2,7 @@ import customtkinter
 
 
 class GanttDiagram(customtkinter.CTkFrame):
-    def __init__(self, master, current_time, tarefas):
+    def __init__(self, master, current_time, tarefas, ticks_com_sorteio=None):
         super().__init__(master)
 
         # Margins for labels
@@ -14,6 +14,9 @@ class GanttDiagram(customtkinter.CTkFrame):
         # Recebe a quantidade de tarefas e o tempo máximo para configurar o diagrama de Gantt
         self.n_tarefas = len(tarefas)
         self.tarefas = tarefas
+        
+        # Ticks em que houve sorteio para desempate
+        self.ticks_com_sorteio = ticks_com_sorteio or set()
 
         # O tempo máximo deve ser usado para definir a escala do diagrama, e atualizado conforme necessário
         self.max_time = current_time 
@@ -97,10 +100,17 @@ class GanttDiagram(customtkinter.CTkFrame):
                 cor=tarefa["cor"],
                 tempos_de_execucao=tarefa["tempos_de_execucao"]
             )
+        
+        # Desenha indicadores de sorteio
+        self.draw_sorteio_markers()
 
     def draw_tarefa_bar(self, linha, id, ingresso, duracao, cor, tempos_de_execucao):
 
         tempo_atual = self.max_time - 1
+        
+        # Garante que a cor tenha o prefixo '#'
+        if cor and not cor.startswith('#'):
+            cor = '#' + cor
 
         # Obtém as dimensões reais do canvas
         canvas_width = self.canvas.winfo_width()
@@ -162,6 +172,38 @@ class GanttDiagram(customtkinter.CTkFrame):
             # Adiciona bordas superior e inferior em todos
             self.canvas.create_line(x0, y0, x1, y0, fill='black', width=border_width)  # Top
             self.canvas.create_line(x0, y1, x1, y1, fill='black', width=border_width)  # Bottom
+
+    def draw_sorteio_markers(self):
+        """Desenha marcadores '?' nos ticks onde houve sorteio para desempate."""
+        if not self.ticks_com_sorteio:
+            return
+        
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        usable_width = canvas_width - self.margin_left - self.margin_right
+        cell_width = usable_width / max(self.max_time, 1)
+        
+        for tick in self.ticks_com_sorteio:
+            if tick < self.max_time:
+                # Posiciona o '?' acima do tick correspondente
+                x = self.margin_left + tick * cell_width + cell_width / 2
+                y = self.margin_top - 30
+                
+                # Desenha um círculo de fundo
+                r = 15
+                self.canvas.create_oval(
+                    x - r, y - r, x + r, y + r,
+                    fill="#FFA500", outline="#FF8C00", width=2
+                )
+                
+                # Desenha o '?'
+                self.canvas.create_text(
+                    x, y,
+                    text="?",
+                    fill="white",
+                    font=("Arial", 16, "bold")
+                )
 
 
 def number_in_start_sequence(x, seq):

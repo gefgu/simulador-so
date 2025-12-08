@@ -13,10 +13,11 @@ from typing import TypedDict
 
 
 class Evento(TypedDict):
-    tipo: str
+    tipo: str  # "IO", "ML" (Mutex Lock), "MU" (Mutex Unlock)
     inicio: int
-    duracao: int
-    tempo_restante: int
+    duracao: int  # Para IO; para ML/MU é 0
+    tempo_restante: int  # Para IO; para ML/MU é 0
+    mutex_id: int  # ID do mutex (apenas para ML e MU)
 
 class TCB(TypedDict):
     id: str
@@ -28,4 +29,5 @@ class TCB(TypedDict):
     tempo_restante: int
     tempos_de_execucao: list[int]
     lista_eventos: list[Evento]  # Lista de dicionários (tipo, inicio, duracao)
+    evento_io_ativo: Evento | None  # Evento de I/O atualmente em processamento
 

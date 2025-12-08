@@ -44,47 +44,150 @@ class SistemaOperacional:
         self.tarefas_finalizadas: list[TCB] = []
         self.fila_IO: list[TCB] = []
 
+        # Estrutura para gerenciar Mutexes
+        # Formato: {mutex_id: {"dono": TCB | None, "fila_espera": list[TCB]}}
+        self.mutexes: dict[int, dict] = {}
+
+        # Rastreia em quais ticks houve sorteio para desempate
+        self.ticks_com_sorteio: set[int] = set()
+
         # Define quais algoritmos causam preempção na CHEGADA de uma nova tarefa
         self.preempcao_por_chegada = self.escalonador.get_preempcao_chegada()
         self.preempcao_por_quantum = self.escalonador.get_preempcao_quantum()
 
+    def _obter_ou_criar_mutex(self, mutex_id: int) -> dict:
+        """Obtém um mutex existente ou cria um novo se não existir."""
+        if mutex_id not in self.mutexes:
+            self.mutexes[mutex_id] = {"dono": None, "fila_espera": []}
+        return self.mutexes[mutex_id]
+
+    def _solicitar_mutex(self, tarefa: TCB, mutex_id: int) -> bool:
+        """
+        Tenta adquirir o mutex para a tarefa.
+        Retorna True se o mutex foi adquirido, False se a tarefa foi bloqueada.
+        """
+        mutex = self._obter_ou_criar_mutex(mutex_id)
+        
+        if mutex["dono"] is None:
+            # Mutex está livre, a tarefa pode adquirir
+            mutex["dono"] = tarefa
+            print(f"Tarefa {tarefa['id']} adquiriu mutex {mutex_id}")
+            return True
+        elif mutex["dono"]["id"] == tarefa["id"]:
+            # A tarefa já possui o mutex (reentrância - opcional, mas seguro)
+            print(f"Tarefa {tarefa['id']} já possui mutex {mutex_id}")
+            return True
+        else:
+            # Mutex está ocupado, bloqueia a tarefa
+            mutex["fila_espera"].append(tarefa)
+            print(f"Tarefa {tarefa['id']} bloqueada aguardando mutex {mutex_id} (dono: {mutex['dono']['id']})")
+            return False
+
+    def _liberar_mutex(self, tarefa: TCB, mutex_id: int):
+        """
+        Libera o mutex e acorda a próxima tarefa na fila de espera, se houver.
+        """
+        mutex = self._obter_ou_criar_mutex(mutex_id)
+        
+        if mutex["dono"] is None:
+            print(f"Aviso: Tarefa {tarefa['id']} tentou liberar mutex {mutex_id} que já está livre")
+            return
+        
+        if mutex["dono"]["id"] != tarefa["id"]:
+            print(f"Aviso: Tarefa {tarefa['id']} tentou liberar mutex {mutex_id} que pertence a {mutex['dono']['id']}")
+            return
+        
+        print(f"Tarefa {tarefa['id']} liberou mutex {mutex_id}")
+        
+        if mutex["fila_espera"]:
+            # Acorda a próxima tarefa na fila de espera
+            proxima_tarefa = mutex["fila_espera"].pop(0)
+            mutex["dono"] = proxima_tarefa
+            print(f"Tarefa {proxima_tarefa['id']} acordada e adquiriu mutex {mutex_id}")
+            # Coloca a tarefa de volta na fila de prontas
+            self.escalonador.adicionar_tarefa_pronta(proxima_tarefa)
+        else:
+            # Ninguém esperando, libera o mutex
+            mutex["dono"] = None
+
+    def _processar_eventos_mutex(self, tarefa: TCB, tempo_execucao_tarefa: int) -> bool:
+        """
+        Processa eventos de mutex (ML e MU) para o tempo de execução atual.
+        Retorna True se a tarefa foi bloqueada, False caso contrário.
+        """
+        if not tarefa["lista_eventos"]:
+            return False
+        
+        tarefa_bloqueada = False
+        
+        for evento in tarefa["lista_eventos"]:
+            if evento["inicio"] == tempo_execucao_tarefa:
+                if evento["tipo"] == "ML":
+                    # Solicitar mutex
+                    if not self._solicitar_mutex(tarefa, evento["mutex_id"]):
+                        # Tarefa foi bloqueada
+                        tarefa_bloqueada = True
+                        break  # Não processa mais eventos se bloqueou
+                elif evento["tipo"] == "MU":
+                    # Liberar mutex
+                    self._liberar_mutex(tarefa, evento["mutex_id"])
+        
+        return tarefa_bloqueada
+
     def executar_tick(self):
+        # Processa todas as tarefas na fila de I/O
         if self.fila_IO:
-            # Verifica se alguma tarefa na fila de I/O terminou seu evento
             tarefas_IO_concluidas = []
             for tarefa_io in self.fila_IO:
-                for evento in tarefa_io["lista_eventos"]:
-                    if evento["tipo"] == "IO" and evento["tempo_restante"] > 0:
-                        tempo_restante = evento["tempo_restante"] - 1
-                        if tempo_restante <= 0:
-                            tarefas_IO_concluidas.append(tarefa_io)
-                            break
-                        break  # Só processa um evento por tick
-                break  # Só processa uma tarefa de I/O por tick
+                # Usa o evento de IO ativo rastreado
+                evento = tarefa_io.get("evento_io_ativo")
+                if evento and evento["tempo_restante"] > 0:
+                    evento["tempo_restante"] -= 1  # Decrementa o tempo restante
+                    if evento["tempo_restante"] <= 0:
+                        tarefa_io["evento_io_ativo"] = None  # Limpa o evento ativo
+                        tarefas_IO_concluidas.append(tarefa_io)
             
             for tarefa_concluida in tarefas_IO_concluidas:
                 self.fila_IO.remove(tarefa_concluida)
                 self.escalonador.adicionar_tarefa_pronta(tarefa_concluida)
 
         # 1. Adiciona novas tarefas que chegaram neste tick
+        novas_tarefas_chegaram = False
         if self.relogio in self.tarefas_no_ingresso:
             novas_tarefas = self.tarefas_no_ingresso[self.relogio]
+            novas_tarefas_chegaram = len(novas_tarefas) > 0
             for tarefa in novas_tarefas:
+                # Inicializa prioridade dinâmica com a prioridade estática
+                tarefa['prioridade_dinamica'] = tarefa['prioridade']
                 self.escalonador.adicionar_tarefa_pronta(tarefa)
             
         # Verifica se alguma nova tarefa deve preemptar a atual (SRTF e Prioridade)
+        # Para PRIOPEnv, só preempta quando NOVAS tarefas chegam, não por envelhecimento
         if self.tarefa_executando and self.preempcao_por_chegada:
-            deve_preemptar = self.escalonador.deve_preemptar(self.tarefa_executando)
+            # PRIOPEnv: só verifica preempção se novas tarefas chegaram
+            # Outros (SRTF, PRIOP): sempre verifica (comportamento original)
+            verificar_preempcao = True
+            if self.nome_escalonador == "priopenv":
+                verificar_preempcao = novas_tarefas_chegaram
+            
+            if verificar_preempcao:
+                deve_preemptar = self.escalonador.deve_preemptar(self.tarefa_executando)
 
-            if deve_preemptar:
-                # Preempção: coloca tarefa atual de volta na fila
-                self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
-                self.tarefa_executando = None
+                if deve_preemptar:
+                    # Preempção: coloca tarefa atual de volta na fila
+                    self.escalonador.adicionar_tarefa_pronta(self.tarefa_executando)
+                    self.tarefa_executando = None
 
         # 2. Se não há tarefa executando, chama o escalonador para escolher a próxima
         if self.tarefa_executando is None:
+            # Informa ao escalonador a tarefa atual (para regras de desempate)
+            self.escalonador.set_tarefa_atual(self.tarefa_executando)
             self.tarefa_executando = self.escalonador.escalonar()
             self.quantum_atual = 0 # Reseta o quantum para a nova tarefa
+            
+            # Registra se houve sorteio neste tick
+            if self.escalonador.houve_sorteio():
+                self.ticks_com_sorteio.add(self.relogio)
 
         # 3. Se ainda assim não houver tarefa (fila vazia), apenas avança o relógio
         if self.tarefa_executando is None:
@@ -95,17 +198,36 @@ class SistemaOperacional:
         self.tarefa_executando["tempos_de_execucao"].append(self.relogio)
         if "tempo_restante" in self.tarefa_executando: # Para SRTF
             self.tarefa_executando["tempo_restante"] -= 1
-            if self.tarefa_executando["lista_eventos"]:
-                for evento in self.tarefa_executando["lista_eventos"]:
-                    if evento["tipo"] == "IO":
-                        inicio_evento = evento["inicio"]
-                        if len(self.tarefa_executando["tempos_de_execucao"]) == inicio_evento:
-                            # Move a tarefa para a fila de I/O
-                            self.fila_IO.append(self.tarefa_executando)
-                            self.tarefa_executando = None
-                            self.quantum_atual = 0
-                            self.relogio += 1
-                            return
+        
+        # Calcula o tempo de execução relativo da tarefa (para eventos)
+        tempo_execucao_tarefa = len(self.tarefa_executando["tempos_de_execucao"])
+        
+        # 4.1 Processa eventos de mutex (ML e MU) - na ordem que aparecem no arquivo
+        if self.tarefa_executando["lista_eventos"]:
+            tarefa_bloqueada_mutex = self._processar_eventos_mutex(self.tarefa_executando, tempo_execucao_tarefa)
+            
+            if tarefa_bloqueada_mutex:
+                # Tarefa foi bloqueada aguardando mutex, libera a CPU
+                # A tarefa já foi adicionada à fila de espera do mutex
+                self.tarefa_executando = None
+                self.quantum_atual = 0
+                self.relogio += 1
+                return
+        
+        # 4.2 Processa eventos de I/O
+        if self.tarefa_executando["lista_eventos"]:
+            for evento in self.tarefa_executando["lista_eventos"]:
+                if evento["tipo"] == "IO":
+                    inicio_evento = evento["inicio"]
+                    if tempo_execucao_tarefa == inicio_evento:
+                        # Salva qual evento de IO está ativo
+                        self.tarefa_executando["evento_io_ativo"] = evento
+                        # Move a tarefa para a fila de I/O
+                        self.fila_IO.append(self.tarefa_executando)
+                        self.tarefa_executando = None
+                        self.quantum_atual = 0
+                        self.relogio += 1
+                        return
         
         self.quantum_atual += 1
 
@@ -122,8 +244,11 @@ class SistemaOperacional:
             self.tarefa_executando = None # Libera a CPU para o próximo
             self.quantum_atual = 0
 
+        # 7. Aplica envelhecimento a todas as tarefas na fila de prontas
+        # Isso é feito NO FINAL do tick, para que tarefas que esperaram ganhem prioridade
+        self.escalonador.aplicar_envelhecimento()
 
-        # 7. Avança o relógio do sistema
+        # 8. Avança o relógio do sistema
         self.relogio += 1
 
     def get_tarefas_ingressadas(self) -> list[TCB]:

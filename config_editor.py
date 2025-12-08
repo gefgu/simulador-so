@@ -12,9 +12,11 @@ def cria_tarefa_padrao() -> TCB:
         ingresso=0,
         duracao=5,
         prioridade=1,
+        prioridade_dinamica=1,
         tempo_restante=5,
         tempos_de_execucao=[],
-        lista_eventos=[]
+        lista_eventos=[],
+        evento_io_ativo=None
     )
 
 def get_available_algorithms() -> list[str]:
@@ -37,6 +39,7 @@ class ConfigEditor(customtkinter.CTkFrame):
 
         # Carrega a configuração inicial
         self.quantum = 2
+        self.alpha = 1
         self.nome_escalonador = "FIFO"
         self.tarefas: list[TCB] = [cria_tarefa_padrao()]
 
@@ -44,6 +47,7 @@ class ConfigEditor(customtkinter.CTkFrame):
         dados_config = read_config(config_file)
         if dados_config:
             self.quantum = dados_config["quantum"]
+            self.alpha = dados_config.get("alpha", 1)
             self.nome_escalonador = dados_config["nome_escalonador"]
             self.tarefas = dados_config["tarefas"]
 
@@ -167,6 +171,36 @@ class ConfigEditor(customtkinter.CTkFrame):
         )
         increment_button.pack(side="left", padx=5)
 
+        # Alpha section (para PRIOPEnv)
+        alpha_section = customtkinter.CTkFrame(controls_frame, fg_color="transparent")
+        alpha_section.pack(side="left", padx=30)
+
+        alpha_label = customtkinter.CTkLabel(
+            alpha_section, text="Alpha (PRIOPEnv):", font=("Arial", 18)
+        )
+        alpha_label.pack(pady=(0, 10))
+
+        alpha_controls = customtkinter.CTkFrame(alpha_section, fg_color="transparent")
+        alpha_controls.pack()
+
+        dec_alpha_btn = customtkinter.CTkButton(
+            alpha_controls, text="-", font=("Arial", 24, "bold"),
+            width=50, height=50, command=self.decrement_alpha
+        )
+        dec_alpha_btn.pack(side="left", padx=5)
+
+        self.alpha_entry = customtkinter.CTkLabel(
+            alpha_controls, text=str(self.alpha),
+            font=("Arial", 32, "bold"), width=60, height=50
+        )
+        self.alpha_entry.pack(side="left", padx=10)
+
+        inc_alpha_btn = customtkinter.CTkButton(
+            alpha_controls, text="+", font=("Arial", 24, "bold"),
+            width=50, height=50, command=self.increment_alpha
+        )
+        inc_alpha_btn.pack(side="left", padx=5)
+
         filename_label = customtkinter.CTkLabel(
             controls_frame, text="Filename:", font=("Arial", 18)
         )
@@ -187,6 +221,17 @@ class ConfigEditor(customtkinter.CTkFrame):
         if self.quantum > 1:
             self.quantum -= 1
             self.quantum_entry.configure(text=str(self.quantum))
+
+    def increment_alpha(self):
+        """Increase alpha value"""
+        self.alpha += 1
+        self.alpha_entry.configure(text=str(self.alpha))
+
+    def decrement_alpha(self):
+        """Decrease alpha value (minimum 1)"""
+        if self.alpha > 1:
+            self.alpha -= 1
+            self.alpha_entry.configure(text=str(self.alpha))
 
     def create_task_list(self):
         """Cria o fórmulário da lista de tarefas atualmente sendo configuradas"""
@@ -276,6 +321,33 @@ class ConfigEditor(customtkinter.CTkFrame):
         prioridade_entry.pack(side="left", padx=5)
         entries_dict['prioridade'] = prioridade_entry
 
+        # Eventos (I/O e Mutex)
+        eventos_label = customtkinter.CTkLabel(
+            task_frame, text="Eventos:", font=("Arial", 18)
+        )
+        eventos_label.pack(side="left", padx=5)
+        
+        # Formata eventos existentes para string
+        eventos_str = ""
+        if tarefa.get("lista_eventos"):
+            eventos_parts = []
+            for ev in tarefa["lista_eventos"]:
+                if ev["tipo"] == "IO":
+                    eventos_parts.append(f"IO:{ev['inicio']}-{ev['duracao']}")
+                elif ev["tipo"] == "ML":
+                    eventos_parts.append(f"ML{ev['mutex_id']:02d}:{ev['inicio']}")
+                elif ev["tipo"] == "MU":
+                    eventos_parts.append(f"MU{ev['mutex_id']:02d}:{ev['inicio']}")
+            eventos_str = ";".join(eventos_parts)
+        
+        eventos_entry = customtkinter.CTkEntry(
+            task_frame, width=250, font=("Arial", 14),
+            placeholder_text="IO:2-1;ML01:3;MU01:5"
+        )
+        eventos_entry.insert(0, eventos_str)
+        eventos_entry.pack(side="left", padx=5)
+        entries_dict['eventos'] = eventos_entry
+
         remove_button = customtkinter.CTkButton(
             task_frame, text="Remover", font=("Arial", 18),
             width=100, height=40, command=lambda: self.remove_task_row(entries_dict)
@@ -294,16 +366,26 @@ class ConfigEditor(customtkinter.CTkFrame):
         filename = self.filename_entry.get()
         nome_escalonador = self.algorithm_picker.get()
         quantum = self.quantum
+        alpha = self.alpha
 
         with open(filename, 'w') as file:
-            file.write(f"{nome_escalonador};{quantum}\n")
+            # Primeira linha: algoritmo;quantum;alpha
+            file.write(f"{nome_escalonador};{quantum};{alpha}\n")
             for entries_dict in self.tasks_entries:
                 id = entries_dict['id'].get()
                 cor = entries_dict['cor'].get()
                 ingresso = entries_dict['ingresso'].get()
                 duracao = entries_dict['duracao'].get()
                 prioridade = entries_dict['prioridade'].get()
-                file.write(f"{id};{cor};{ingresso};{duracao};{prioridade};\n")
+                eventos = entries_dict['eventos'].get().strip()
+                
+                # Monta a linha da tarefa
+                linha = f"{id};{cor};{ingresso};{duracao};{prioridade};"
+                if eventos:
+                    # Adiciona eventos separados por ;
+                    eventos_list = [e.strip() for e in eventos.split(';') if e.strip()]
+                    linha += ";".join(eventos_list) + ";"
+                file.write(linha + "\n")
 
         self.menu_frame.destroy()
         self.voltar_callback(filename)

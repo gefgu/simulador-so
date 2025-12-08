@@ -193,17 +193,23 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         # Atualiza labels de informação
         self.relogio_label.configure(text=f"🕒 Tick: {current_time}")
         if tarefa_executando:
-            self.tarefa_exec_label.configure(text=f"Executando: {tarefa_executando['id']}")
+            # Mostra quantum atual se algoritmo usa quantum
+            if so.nome_escalonador.lower() in ["fifo", "rr"]:
+                self.tarefa_exec_label.configure(text=f"Executando: {tarefa_executando['id']} (Q: {so.quantum_atual}/{so.quantum})")
+            else:
+                self.tarefa_exec_label.configure(text=f"Executando: {tarefa_executando['id']}")
         else:
             self.tarefa_exec_label.configure(text="Executando: Nenhuma")
-        self.ativas_label.configure(text=f"🏃 Ativas: {len(fila_prontas)}")
+        self.ativas_label.configure(text=f"🏃 Prontas: {len(fila_prontas)}")
         self.finalizadas_label.configure(text=f"✅ Finalizadas: {len(so.tarefas_finalizadas)}/{len(todas_tarefas)}")
 
         # Recria o diagrama de Gantt no frame correto
         if self.gantt_diagram:
             self.gantt_diagram.destroy()
 
-        self.gantt_diagram = GanttDiagram(self.gantt_frame, current_time, tarefas)
+        # Passa os ticks com sorteio para o diagrama
+        ticks_sorteio = getattr(so, 'ticks_com_sorteio', set())
+        self.gantt_diagram = GanttDiagram(self.gantt_frame, current_time, tarefas, ticks_sorteio)
         self.gantt_diagram.pack(fill="both", expand=True, padx=10, pady=10)
         
         # Atualiza o painel de inspeção de TCBs
@@ -252,6 +258,14 @@ class SimulacaoFrame(customtkinter.CTkFrame):
         fila_prontas = so.escalonador.fila_tarefas_prontas
         todas_tarefas = so.tarefas
         tarefas_finalizadas = so.tarefas_finalizadas
+        fila_io = so.fila_IO
+        mutexes = so.mutexes
+        
+        # Coleta tarefas bloqueadas por mutex
+        tarefas_bloqueadas_mutex = set()
+        for mutex_id, mutex_info in mutexes.items():
+            for tarefa in mutex_info["fila_espera"]:
+                tarefas_bloqueadas_mutex.add(tarefa["id"])
         
         # Função para determinar estado da tarefa
         def get_estado_tarefa(tarefa):
@@ -260,13 +274,49 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             elif tarefa == tarefa_executando:
                 return "EXECUTANDO", "#2196F3"  # Azul
             elif tarefa in fila_io:
-                return "AGUARDANDO I/O", "#FF6F00"  # Laranja escuro
+                return "BLOQUEADA I/O", "#FF6F00"  # Laranja escuro
+            elif tarefa["id"] in tarefas_bloqueadas_mutex:
+                return "BLOQUEADA MUTEX", "#E91E63"  # Rosa/Magenta
             elif tarefa in fila_prontas:
                 return "PRONTA", "#FF9800"      # Laranja claro
-            elif tarefa['ingresso'] <= so.relogio:
-                return "INGRESSANDO", "#9C27B0"   # Roxo
+            elif tarefa['ingresso'] > so.relogio:
+                return "NÃO INGRESSADA", "#757575"  # Cinza
             else:
-                return "AGUARDANDO", "#757575"  # Cinza
+                return "DESCONHECIDO", "#9C27B0"   # Roxo
+        
+        # === PAINEL DE MUTEXES ===
+        if mutexes:
+            mutex_frame = customtkinter.CTkFrame(self.tcb_scrollable)
+            mutex_frame.pack(fill="x", padx=5, pady=10)
+            
+            mutex_title = customtkinter.CTkLabel(
+                mutex_frame,
+                text="🔒 Estado dos Mutexes:",
+                font=("Arial", 16, "bold")
+            )
+            mutex_title.pack(pady=5)
+            
+            for mutex_id, mutex_info in mutexes.items():
+                dono = mutex_info["dono"]
+                fila_espera = mutex_info["fila_espera"]
+                
+                if dono:
+                    dono_text = f"Mutex {mutex_id}: 🔐 Dono: {dono['id']}"
+                else:
+                    dono_text = f"Mutex {mutex_id}: 🔓 Livre"
+                
+                if fila_espera:
+                    esperando = ", ".join([t['id'] for t in fila_espera])
+                    dono_text += f" | ⏳ Esperando: {esperando}"
+                
+                mutex_label = customtkinter.CTkLabel(
+                    mutex_frame,
+                    text=dono_text,
+                    font=("Consolas", 14),
+                    wraplength=350
+                )
+                mutex_label.pack(padx=10, pady=2)
+        
         # Separador
         separator = customtkinter.CTkFrame(self.tcb_scrollable, height=2)
         separator.pack(fill="x", padx=5, pady=5)
@@ -299,7 +349,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             )
             fila_label.pack(padx=10, pady=(0, 10))
 
-        fila_io = self.sistema_operacional.fila_IO
+        # Fila de I/O
         if fila_io:
             io_frame = customtkinter.CTkFrame(self.tcb_scrollable)
             io_frame.pack(fill="x", padx=5, pady=10)
@@ -311,16 +361,17 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             )
             io_title.pack(pady=5)
             
-            # Fixed: Access events inside each task
+            # Mostra evento de IO ativo de cada tarefa
             io_text_parts = []
             for t in fila_io:
-                # Get the current I/O event for this task
-                for evento in t['lista_eventos']:
-                    if evento['tipo'] == 'IO' and evento['tempo_restante'] > 0:
-                        io_text_parts.append(
-                            f"{t['id']}(IO:{evento['inicio']}-{evento['duracao']}, restante:{evento['tempo_restante']})"
-                        )
-                        break  # Only show first active IO event
+                # Usa o evento_io_ativo se disponível
+                evento = t.get("evento_io_ativo")
+                if evento and evento['tempo_restante'] > 0:
+                    io_text_parts.append(
+                        f"{t['id']}(restante:{evento['tempo_restante']})"
+                    )
+                else:
+                    io_text_parts.append(f"{t['id']}")
             
             io_text = " → ".join(io_text_parts) if io_text_parts else "Vazia"
             
@@ -358,20 +409,37 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             
             # Detalhes da tarefa
             details_text = f"⏰ Ingresso: {tarefa['ingresso']}\n"
-            # details_text += f"⏱️ Duração: {tarefa['duracao']}\n"
             details_text += f"⭐ Prioridade: {tarefa['prioridade']}\n"
             
-            if 'tempo_restante' in tarefa and so.nome_escalonador == 'srtf':
+            if 'tempo_restante' in tarefa and so.nome_escalonador.lower() == 'srtf':
                 details_text += f"⏳ Restante: {tarefa['tempo_restante']}\n"
-            if so.nome_escalonador == "priopenv":
+            if so.nome_escalonador.lower() == "priopenv":
                 details_text += f"⚡ Prioridade Dinâmica: {tarefa.get('prioridade_dinamica', tarefa['prioridade'])}\n"
             
             executed_ticks = len(tarefa['tempos_de_execucao'])
             details_text += f"✔️ Executado: {executed_ticks}/{tarefa['duracao']} ticks\n"
             
             if tarefa['tempos_de_execucao']:
-                recent_ticks = tarefa['tempos_de_execucao'][-3:]  # Últimos 3 ticks
-                details_text += f"🔄 Ticks em execução: {recent_ticks}"
+                recent_ticks = tarefa['tempos_de_execucao'][-5:]  # Últimos 5 ticks
+                details_text += f"🔄 Últimos ticks: {recent_ticks}\n"
+            
+            # Mostra eventos pendentes (I/O e Mutex)
+            if tarefa['lista_eventos']:
+                eventos_pendentes = []
+                for ev in tarefa['lista_eventos']:
+                    if ev['tipo'] == 'IO':
+                        if ev['tempo_restante'] > 0 or ev['inicio'] > executed_ticks:
+                            eventos_pendentes.append(f"IO@{ev['inicio']}")
+                    elif ev['tipo'] == 'ML':
+                        if ev['inicio'] > executed_ticks:
+                            eventos_pendentes.append(f"ML{ev['mutex_id']}@{ev['inicio']}")
+                    elif ev['tipo'] == 'MU':
+                        if ev['inicio'] > executed_ticks:
+                            eventos_pendentes.append(f"MU{ev['mutex_id']}@{ev['inicio']}")
+                if eventos_pendentes:
+                    details_text += f"📅 Eventos: {', '.join(eventos_pendentes[:4])}"
+                    if len(eventos_pendentes) > 4:
+                        details_text += f"... (+{len(eventos_pendentes)-4})"
             
             details_label = customtkinter.CTkLabel(
                 tarefa_frame,
@@ -443,10 +511,47 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             print(f"⚠️ PIL falhou: {e}")
             print("🔄 Tentando método alternativo...")
         
-        # === MÉTODO 2: PostScript (Linux/fallback) ===
+        # === MÉTODO 2: Ferramentas nativas do Linux ===
+        if sistema == "linux":
+            try:
+                print("🔄 Tentando captura com ferramentas do Linux...")
+                
+                # Obtém ID da janela
+                window_id = self.winfo_id()
+                
+                # Tenta com import (ImageMagick) - captura janela específica
+                result = subprocess.run(
+                    ["import", "-window", str(window_id), filename],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0:
+                    print(f"✅ Imagem salva com ImageMagick: {filename}")
+                    return
+                    
+            except FileNotFoundError:
+                print("⚠️ ImageMagick 'import' não encontrado")
+            except Exception as e:
+                print(f"⚠️ Falha com ImageMagick: {e}")
+            
+            try:
+                # Tenta com scrot
+                result = subprocess.run(
+                    ["scrot", "-u", filename],  # -u = janela ativa
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0:
+                    print(f"✅ Imagem salva com scrot: {filename}")
+                    return
+                    
+            except FileNotFoundError:
+                print("⚠️ scrot não encontrado")
+            except Exception as e:
+                print(f"⚠️ Falha com scrot: {e}")
+        
+        # === MÉTODO 3: PostScript do Gantt (fallback - só o gráfico) ===
         if self.gantt_diagram and self.gantt_diagram.canvas:
             try:
-                print("🔄 Gerando PostScript do diagrama...")
+                print("🔄 Gerando PostScript do diagrama de Gantt (apenas gráfico)...")
                 temp_ps = f"temp_{timestamp}.eps"
                 
                 self.gantt_diagram.canvas.postscript(file=temp_ps)
@@ -454,6 +559,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
                 
                 # Tenta conversão com ImageMagick
                 if convert_ps_to_png_with_white_bg(temp_ps, filename):
+                    print(f"⚠️ Nota: Apenas o gráfico de Gantt foi salvo (não a tela inteira)")
                     try:
                         os.remove(temp_ps)
                     except:
@@ -462,6 +568,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
                 
                 # Tenta conversão com Pillow
                 if convert_ps_to_png_pillow_with_white_bg(temp_ps, filename):
+                    print(f"⚠️ Nota: Apenas o gráfico de Gantt foi salvo (não a tela inteira)")
                     try:
                         os.remove(temp_ps)
                     except:
@@ -473,7 +580,7 @@ class SimulacaoFrame(customtkinter.CTkFrame):
             except Exception as e:
                 print(f"❌ Método PostScript falhou: {e}")
         
-        # === MÉTODO 3: SVG como último recurso ===
+        # === MÉTODO 4: SVG como último recurso ===
         try:
             print("🔄 Gerando SVG como alternativa...")
             svg_filename = filename.replace('.png', '.svg')
